@@ -26,43 +26,32 @@ INCLUDES = -I./include
 # Run clean even when all files have been removed.
 .PHONY: clean
 
-ASRC= gf256mul/gf256mul.S
-SRC+= include/aes_dec.c
-SRC+= include/aes_enc.c
-SRC+= include/aes_sbox.c
-SRC+= include/aes_invsbox.c
-SRC+= include/aes_keyschedule.c
-SRC+= include/aes256_enc.c
-SRC+= include/aes256_dec.c
-
-OBJ = $(SRC:%.c=%.o) $(ASRC:%.S=%.o)
-
 all:    flash.hex eeprom.hex
 	@echo  Simple bootloader has been compiled and packaged as intel hex.
 
 gf256mul.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/gf256mul.S
+	$(CC) $(CFLAGS) $(INCLUDES) -c include/gf256mul.S -o gf256mul.o
 
-aes_dec.o: gf256mul.o
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_dec.c -o gf256mul.o 
+aes_dec.o: gf256mul.o aes256_enc.o aes256_dec.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_dec.c -o aes_dec.o gf256mul.o aes256_enc.o aes256_dec.o
 
-aes_enc.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_enc.c
+aes_enc.o: gf256mul.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_enc.c -o aes_enc.o gf256mul.o
 
 aes_sbox.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_sbox.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_sbox.c -o aes_sbox.o
 
 aes_invsbox.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_invsbox.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_invsbox.c -o aes_invsbox.o
 
 aes_keyschedule.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_keyschedule.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_keyschedule.c -o aes_keyschedule.o
 
-aes256_enc.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes256_enc.c
+aes256_enc.o: gf256mul.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes256_enc.c -o aes256_enc.o gf256mul.o
 
-aes256_dec.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes256_dec.c 
+aes256_dec.o: gf256mul.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes256_dec.c -o aes256_dec.o gf256mul.o
 
 uart.o: 
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/uart.c
@@ -74,7 +63,7 @@ bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
 bootloader.elf: uart.o sys_startup.o bootloader.o aes_dec.o aes256_dec.o aes256_enc.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o aes256_dec.o aes256_dec.o aes_dec.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o aes256_dec.o aes256_enc.o aes_dec.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o
 
 strip: bootloader.elf
 	$(STRIP) bootloader.elf -o bootloader.elf
