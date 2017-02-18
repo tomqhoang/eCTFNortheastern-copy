@@ -1,0 +1,22 @@
+void aes256_test(void)
+{
+    // aes256 is 32 byte key
+    uint8_t key[32] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20, 21,22,23,24,25,26,27,28,29,30,31};
+
+    // aes256 is 16 byte data size
+    uint8_t data[16] = "text to encrypt";
+
+    // declare the context where the round keys are stored
+    aes256_ctx_t ctx;
+
+    // Initialize the AES256 with the desired key
+    aes256_init(key, &ctx);
+
+    // Encrypt data 
+    // "text to encrypt" (ascii) -> '9798D10A63E4E167122C4C07AF49C3A9'(hexa)
+    aes256_enc(data, &ctx);
+
+    // Decrypt data
+    // '9798D10A63E4E167122C4C07AF49C3A9'(hexa) -> "text to encrypt" (ascii)
+    aes256_dec(data, &ctx);
+}
