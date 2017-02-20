@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """
 Firmware Bundle-and-Protect Tool
-
 """
 import argparse
 import shutil
