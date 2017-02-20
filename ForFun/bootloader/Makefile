@@ -32,6 +32,9 @@ all:    flash.hex eeprom.hex
 gf256mul.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c include/gf256mul.S -o gf256mul.o
 
+sha2_small_common.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha2_small_common.c -o sha2_small_common.o
+
 aes_dec.o: gf256mul.o aes256_enc.o aes256_dec.o
 	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_dec.c -o aes_dec.o gf256mul.o aes256_enc.o aes256_dec.o
 
@@ -53,6 +56,9 @@ aes256_enc.o: gf256mul.o
 aes256_dec.o: gf256mul.o
 	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes256_dec.c -o aes256_dec.o gf256mul.o
 
+sha256.o: sha2_small_common.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha256.c -o sha256.o sha2_small_common.o
+
 uart.o: 
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/uart.c
 
@@ -62,8 +68,8 @@ sys_startup.o:
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader.elf: uart.o sys_startup.o bootloader.o aes_dec.o aes256_dec.o aes256_enc.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o aes256_dec.o aes256_enc.o aes_dec.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o
+bootloader.elf: uart.o sys_startup.o bootloader.o aes_dec.o aes256_dec.o aes256_enc.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o sha2_small_common.o sha256.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o aes256_dec.o aes256_enc.o aes_dec.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o sha2_small_common.o sha256.o
 
 strip: bootloader.elf
 	$(STRIP) bootloader.elf -o bootloader.elf

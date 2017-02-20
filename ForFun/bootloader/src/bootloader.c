@@ -77,6 +77,7 @@ int main(void)
     {
         UART1_putchar('U');
         load_firmware();
+	
     }
     else if(!(PINB & (1 << PB3)))
     {
@@ -85,12 +86,13 @@ int main(void)
     }
     else
     {
-        UART1_putchar('C');
-        //boot_firmware();
-        while(1)
+	UART1_putchar('C');
+	test();
+        boot_firmware();
+        /*while(1)
         {
             test();
-        }
+        }*/
     }
     //UART1_putchar('U');
     //load_firmware();
@@ -335,25 +337,29 @@ static void test(void)
     // the context where the round keys are stored
     aes256_ctx_t ctx;
 
-    UART_send_str("\n** AES256-TEST **\n");
+    //UART_send_str("\n** AES256-TEST **\n");
+    UART1_putchar('T');
 
     // Initialize the AES256 with the desired key
     aes256_init(key, &ctx);
-    UART_send_str("Key: '");
-    print_hex(key, 32);
-    UART_send_str("'\n");
+    //UART_send_str("Key: '");
+    //print_hex(key, 32);
+    //UART_send_str("'\n");
+    UART1_putchar('K');
 
     // Encrypt text and show the result in hexa
     aes256_enc(data, &ctx);
-    UART_send_str("Encrypted: '");
-    print_hex(data, 16);
-    UART_send_str("'\n");
+    //UART_send_str("Encrypted: '");
+    //print_hex(data, 16);
+    //UART_send_str("'\n");
+    UART1_putchar('E');
 
     // Decrypt data and show the result in ascii
     aes256_dec(data, &ctx);
-    UART_send_str("Decrypted: '");
-    UART_send_str(data);
-    UART_send_str("'\n");
+    //UART_send_str("Decrypted: '");
+    //UART_send_str(data);
+    //UART_send_str("'\n");
+    UART1_putchar('D');
 
 }
 
