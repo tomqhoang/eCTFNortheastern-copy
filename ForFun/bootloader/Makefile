@@ -62,8 +62,8 @@ sys_startup.o:
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader.elf: uart.o sys_startup.o bootloader.o aes_dec.o aes256_dec.o aes256_enc.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o sha2_small_common.o sha256.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o aes256_dec.o aes256_enc.o aes_dec.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o sha2_small_common.o sha256.o
+bootloader.elf: uart.o sys_startup.o bootloader.o aes_dec.o aes256_dec.o aes256_enc.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o aes256_dec.o aes256_enc.o aes_dec.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o
 
 strip: bootloader.elf
 	$(STRIP) bootloader.elf -o bootloader.elf
