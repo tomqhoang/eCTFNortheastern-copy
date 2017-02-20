@@ -24,10 +24,16 @@ CFLAGS  = $(CDEFS) $(CLINKER) $(CWARN) $(COPT)
 INCLUDES = -I./include
 
 # Run clean even when all files have been removed.
-.PHONY: clean
+.PHONY: cleanx
 
 all:    flash.hex eeprom.hex
 	@echo  Simple bootloader has been compiled and packaged as intel hex.
+
+sha2_small_common.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha2_small_common.c -o sha2_small_common.o
+
+sha256.o: sha2_small_common.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha256.c -o sha256.o sha2_small_common.o
 
 uart.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/uart.c
@@ -38,8 +44,8 @@ sys_startup.o:
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader.elf: uart.o sys_startup.o bootloader.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o
+bootloader.elf: uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o
 
 strip: bootloader.elf
 	$(STRIP) bootloader.elf -o bootloader.elf

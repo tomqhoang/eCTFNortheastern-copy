@@ -1,3 +1,0 @@
-# Ignore build outputs.
-*.hex
-secret_*_output.txt
