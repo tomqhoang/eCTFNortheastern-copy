@@ -38,7 +38,7 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <util/delay.h> 
-#include "aes.h"
+//#include "aes.h"
 
 #define OK    ((unsigned char)0x00)
 #define ERROR ((unsigned char)0x01)
@@ -48,7 +48,7 @@ void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
 void boot_firmware(void);
 void readback(void);
-static void test(void);
+//static void test(void);
 static void UART_send_char(char c);
 static void UART_send_str(char *str);
 static char hexa_to_ascii(uint8_t input);
@@ -87,7 +87,7 @@ int main(void)
     else
     {
 	UART1_putchar('C');
-	test();
+	//test();
         boot_firmware();
         /*while(1)
         {
@@ -326,7 +326,7 @@ void program_flash(uint32_t page_address, unsigned char *data)
     boot_rww_enable_safe(); // We can just enable it after every program too
 }
 
-static void test(void)
+/*static void test(void)
 {
     // aes256 is 32 byte key
     uint8_t key[32] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21, 22,23,24,25,26,27,28,29,30,31};
@@ -361,7 +361,7 @@ static void test(void)
     //UART_send_str("'\n");
     UART1_putchar('D');
 
-}
+}*/
 
 /*!	\fn 	static void UART_send_char(char c)
 *	\brief	Send a char through UART0

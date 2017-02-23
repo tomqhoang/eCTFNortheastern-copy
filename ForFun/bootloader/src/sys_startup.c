@@ -3,7 +3,8 @@
 
 void __Init         (void) __attribute__ ((naked)) __attribute__ ((section (".vectors")));
 void __do_copy_data (void) __attribute__ ((naked)) __attribute__ ((section (".init4")));
-void __jumpMain     (void) __attribute__ ((naked)) __attribute__ ((section (".init9")));
+//some test
+//void __jumpMain     (void) __attribute__ ((naked)) __attribute__ ((section (".init9")));
 
 void __Init(void)
 {

@@ -13,7 +13,7 @@ OBJCOPY = avr-objcopy
 
 # Compiler configurations.
 CDEFS = -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DRB_PASSWORD=\"${PASSWORD}\"
-CLINKER = -nostartfiles -Wl,--section-start=.text=0x1F000
+CLINKER = -nostartfiles -Wl,--section-start=.text=0x1E000 
 CWARN =  -Wall
 COPT = -std=gnu99 -Os -fno-tree-scev-cprop -mcall-prologues \
        -fno-inline-small-functions -fsigned-char
@@ -28,6 +28,12 @@ INCLUDES = -I./include
 
 all:    flash.hex eeprom.hex
 	@echo  Simple bootloader has been compiled and packaged as intel hex.
+
+sha256.o: sha2_small_common.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha256.c -o sha256.o sha2_small_common.o
+
+sha2_small_common.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha2_small_common.c -o sha2_small_common.o
 
 gf256mul.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/gf256mul.S -o gf256mul.o
@@ -62,8 +68,8 @@ sys_startup.o:
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader.elf: uart.o sys_startup.o bootloader.o aes_dec.o aes256_dec.o aes256_enc.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o aes256_dec.o aes256_enc.o aes_dec.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o
+bootloader.elf: uart.o sys_startup.o bootloader.o sha256.o aes_dec.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o sha256.o sha2_small_common.o aes_dec.o aes_enc.o aes_sbox.o aes_invsbox.o aes_keyschedule.o gf256mul.o
 
 strip: bootloader.elf
 	$(STRIP) bootloader.elf -o bootloader.elf
