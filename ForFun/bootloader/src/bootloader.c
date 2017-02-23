@@ -86,10 +86,16 @@ int main(void)
     else
     {
         UART1_putchar('C');
+        UART0_putchar('D');
         //boot_firmware();
         while(1)
         {
+            char* myString = "hello there";
+            UART1_putstring(myString);
+            UART1_putstring(*myString);
+            UART1_putchar('L');
             test();
+            _delay_ms(3000);
         }
     }
     //UART1_putchar('U');
@@ -375,10 +381,11 @@ static void UART_send_char(char c)
 */
 static void UART_send_str(char *data)
 {
-    while(*data != 0)
+    /*while(*data != 0)
     {
         UART_send_char(*data++);
-    }
+    }*/
+    UART1_putstring(*data);
 }
 
 /*!	\fn 	static char hexa_to_ascii(uint8_t input)

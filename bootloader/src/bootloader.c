@@ -66,7 +66,14 @@ int main(void) {
         readback();
     }
     else {
-        UART1_putchar('B');
+        UART1_putchar('K');
+        UART1_putstring("String 1");
+        char str[6] = { 'H', 'E', 'L', 'L', 'O', '\0' };
+        if (len(str) != 0 )
+        {
+
+        }
+        UART1_putstring(*str);
         boot_firmware();
     }
 }
