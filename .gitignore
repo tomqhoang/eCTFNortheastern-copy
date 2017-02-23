@@ -9,3 +9,9 @@ Vagrantfile.local
 
 # Logfile created by vagrant.
 ubuntu-xenial-16.04-cloudimg-console.log
+
+# Ignore build outputs.
+*.o
+*.hex
+*.elf
+secret_*_output.txt
