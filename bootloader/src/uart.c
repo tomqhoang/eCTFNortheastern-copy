@@ -46,10 +46,8 @@ void UART1_flush(void) {
 
 void UART1_putstring(char* str) {
     int i = 0;
-    UART1_putchar('E');
 
     while (str[i] != 0) {
-        UART1_putchar('I');
         UART1_putchar(str[i]);
         i += 1;
     }

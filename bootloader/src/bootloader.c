@@ -36,6 +36,7 @@
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <string.h>
 
 #define OK ((unsigned char) 0x00)
 #define ERROR ((unsigned char) 0x01)
@@ -47,6 +48,10 @@ void readback(void);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
+
+const char str[] PROGMEM = "AAAA";
+const char str2[] PROGMEM = "BBBB";
+
 
 int main(void) {
     UART1_init();  // Init UART1 (virtual com port)
@@ -66,14 +71,33 @@ int main(void) {
         readback();
     }
     else {
-        UART1_putchar('K');
-        UART1_putstring("String 1");
-        char str[6] = { 'H', 'E', 'L', 'L', 'O', '\0' };
-        if (len(str) != 0 )
-        {
+        //char str[6] = { "Hello" };
+        /*str[0] = 'H';
+        str[1] = 'E';
+        str[2] = 'L';
+        str[3] = 'L';
+        str[4] = 'O';
+        str[5] = "\0";*/
 
-        }
-        UART1_putstring(*str);
+        
+
+        uint8_t str5[6] = {'H','E','L', 'L', 'O', '\0'};
+        uint8_t key[32] = {0,65,2,3,4,5,6,7,8,9,10,11,12,13,14,66,16,17,18,19,20,21, 22,23,24,25,26,27,28,29,30,31};
+
+        UART1_putchar(key[1]);
+        UART1_putchar(key[15]);
+        
+        //UART1_putstring(str5);
+        //UART1_putchar('m');
+
+        UART1_putchar(str5[2]);
+
+        int i = 0;
+        for(i=0; i< 4; i++) //(str5[i] != 0) 
+        {
+            UART1_putchar('I');
+            UART1_putchar(str5[i]);
+        }   
         boot_firmware();
     }
 }

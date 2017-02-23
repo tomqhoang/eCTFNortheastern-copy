@@ -61,10 +61,13 @@ void UART1_flush(void)
 void UART1_putstring(char* str)
 {
     int i = 0;
+    UART1_putchar('s');
     while(str[i] != 0){
+        UART1_putchar("i");
         UART1_putchar(str[i]);
         i += 1;
     }
+    UART1_putchar('E');
     UART1_putchar((unsigned char)0);  // make sure we send out the null terminator
 }
 

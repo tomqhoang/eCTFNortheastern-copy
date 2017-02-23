@@ -58,6 +58,8 @@ uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
 #define LED PB5 
 
+const char aes256Test[] PROGMEM = "\n** AES256-TEST **\n";
+
 int main(void)
 {
     // Init UART1 (virtual com port)
@@ -90,9 +92,12 @@ int main(void)
         //boot_firmware();
         while(1)
         {
-            char* myString = "hello there";
-            UART1_putstring(myString);
-            UART1_putstring(*myString);
+            char* str = "test";
+
+            char str2[12] = "SomeString";
+
+            UART1_putstring(str2);
+
             UART1_putchar('L');
             test();
             _delay_ms(3000);
@@ -341,7 +346,8 @@ static void test(void)
     // the context where the round keys are stored
     aes256_ctx_t ctx;
 
-    UART_send_str("\n** AES256-TEST **\n");
+    UART_send_str(aes256Test);
+    UART1_putstring(aes256Test);
 
     // Initialize the AES256 with the desired key
     aes256_init(key, &ctx);
