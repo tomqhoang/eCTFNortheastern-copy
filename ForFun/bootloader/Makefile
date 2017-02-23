@@ -30,28 +30,28 @@ all:    flash.hex eeprom.hex
 	@echo  Simple bootloader has been compiled and packaged as intel hex.
 
 gf256mul.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/gf256mul.S -o gf256mul.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/gf256mul.S -o gf256mul.o
 
 aes_dec.o: gf256mul.o aes256_enc.o aes256_dec.o
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_dec.c -o aes_dec.o gf256mul.o aes256_enc.o aes256_dec.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes_dec.c -o aes_dec.o gf256mul.o aes256_enc.o aes256_dec.o
 
 aes_enc.o: gf256mul.o
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_enc.c -o aes_enc.o gf256mul.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes_enc.c -o aes_enc.o gf256mul.o
 
 aes_sbox.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_sbox.c -o aes_sbox.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes_sbox.c -o aes_sbox.o
 
 aes_invsbox.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_invsbox.c -o aes_invsbox.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes_invsbox.c -o aes_invsbox.o
 
 aes_keyschedule.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes_keyschedule.c -o aes_keyschedule.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes_keyschedule.c -o aes_keyschedule.o
 
 aes256_enc.o: gf256mul.o
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes256_enc.c -o aes256_enc.o gf256mul.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes256_enc.c -o aes256_enc.o gf256mul.o
 
 aes256_dec.o: gf256mul.o
-	$(CC) $(CFLAGS) $(INCLUDES) -c include/aes256_dec.c -o aes256_dec.o gf256mul.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes256_dec.c -o aes256_dec.o gf256mul.o
 
 uart.o: 
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/uart.c
