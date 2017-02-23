@@ -29,6 +29,9 @@ INCLUDES = -I./include
 all:    flash.hex eeprom.hex
 	@echo  Simple bootloader has been compiled and packaged as intel hex.
 
+aes.o : include/aes.h src/aes.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes.c -o aes.o
+
 sha2_small_common.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha2_small_common.c -o sha2_small_common.o
 
@@ -44,17 +47,33 @@ sys_startup.o:
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader.elf: uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o
+bootloader_dbg.elf: uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o aes.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o aes.o
 
-strip: bootloader.elf
-	$(STRIP) bootloader.elf -o bootloader.elf
+strip: bootloader_dbg.elf
+	$(STRIP) bootloader_dbg.elf -o bootloader.elf
 
 flash.hex: strip
 	$(OBJCOPY) -R .eeprom -O ihex bootloader.elf flash.hex
+	avr-size flash.hex
 
 eeprom.hex: strip
 	$(OBJCOPY) -j .eeprom --set-section-flags=.eeprom="alloc,load" --change-section-lma .eeprom=0 -O ihex bootloader.elf eeprom.hex
+
+flash: flash.hex eeprom.hex
+	 avrdude -P usb -p m1284p -c $(PROGRAMMER)  -u -U flash:w:flash.hex:i \
+						    -U eeprom:w:eeprom.hex:i \
+						    -U lfuse:w:lfuse.hex:i \
+						    -U hfuse:w:hfuse.hex:i \
+						    -U efuse:w:efuse.hex:i
+
+debug: flash.hex eeprom.hex
+	# Launch avarice: a tool that creates a debug server for the AVR and Dragon
+	avarice -R -g :4242 &
+	# Launch the avr debugger avr-gdb. The configuation for this tool is included 
+	# in .gdbinit
+	avr-gdb
+
 
 clean:
 	$(RM) -v *.hex *.o *.elf $(MAIN)
