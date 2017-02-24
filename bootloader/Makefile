@@ -13,7 +13,7 @@ OBJCOPY = avr-objcopy
 
 # Compiler configurations.
 CDEFS = -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DRB_PASSWORD=\"${PASSWORD}\"
-CLINKER = -nostartfiles -Wl,--section-start=.text=0x1E000
+CLINKER = -nostartfiles -Wl,--section-start=.text=0x1E000 -Wl,-Map,bootloader.map
 CWARN =  -Wall
 COPT = -std=gnu99 -Os -fno-tree-scev-cprop -mcall-prologues \
        -fno-inline-small-functions -fsigned-char
@@ -24,7 +24,7 @@ CFLAGS  = $(CDEFS) $(CLINKER) $(CWARN) $(COPT)
 INCLUDES = -I./include
 
 # Run clean even when all files have been removed.
-.PHONY: cleanx
+.PHONY: clean
 
 all:    flash.hex eeprom.hex
 	@echo  Simple bootloader has been compiled and packaged as intel hex.
