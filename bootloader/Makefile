@@ -10,9 +10,10 @@ PASSWORD ?= password
 CC = avr-gcc
 STRIP  = avr-strip
 OBJCOPY = avr-objcopy
+PROGRAMMER = dragon_jtag
 
 # Compiler configurations.
-CDEFS = -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DRB_PASSWORD=\"${PASSWORD}\"
+CDEFS = -g3 -ggdb3 -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DRB_PASSWORD=\"${PASSWORD}\"
 CLINKER = -nostartfiles -Wl,--section-start=.text=0x1E000 -Wl,-Map,bootloader.map
 CWARN =  -Wall
 COPT = -std=gnu99 -Os -fno-tree-scev-cprop -mcall-prologues \
@@ -29,8 +30,8 @@ INCLUDES = -I./include
 all:    flash.hex eeprom.hex
 	@echo  Simple bootloader has been compiled and packaged as intel hex.
 
-aes.o : include/aes.h src/aes.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes.c -o aes.o
+trivium.o: 
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/trivium.c -o trivium.o
 
 sha2_small_common.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha2_small_common.c -o sha2_small_common.o
@@ -47,8 +48,8 @@ sys_startup.o:
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader_dbg.elf: uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o aes.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o aes.o
+bootloader_dbg.elf: uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o trivium.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o trivium.o
 
 strip: bootloader_dbg.elf
 	$(STRIP) bootloader_dbg.elf -o bootloader.elf
