@@ -30,8 +30,14 @@ INCLUDES = -I./include
 all:    flash.hex eeprom.hex
 	@echo  Simple bootloader has been compiled and packaged as intel hex.
 
-trivium.o: 
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/trivium.c -o trivium.o
+encrypt.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/encrypt.c -o encrypt.o
+
+decrypt.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/decrypt.c -o decrypt.o
+
+#trivium.o: 
+#	$(CC) $(CFLAGS) $(INCLUDES) -c src/trivium.c -o trivium.o
 
 sha2_small_common.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha2_small_common.c -o sha2_small_common.o
@@ -48,8 +54,8 @@ sys_startup.o:
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader_dbg.elf: uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o trivium.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o trivium.o
+bootloader_dbg.elf: uart.o sys_startup.o bootloader.o sha256.o encrypt.o decrypt.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o sha2_small_common.o sha256.o encrypt.o decrypt.o
 
 strip: bootloader_dbg.elf
 	$(STRIP) bootloader_dbg.elf -o bootloader.elf

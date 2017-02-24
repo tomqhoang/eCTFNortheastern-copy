@@ -37,9 +37,13 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 
+#include "encrypt.h"
+#include "decrypt.h"
+
 #define OK ((unsigned char) 0x00)
 #define ERROR ((unsigned char) 0x01)
 
+void test_encryption(void);
 void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
 void boot_firmware(void);
@@ -67,8 +71,30 @@ int main(void) {
     }
     else {
         UART1_putchar('B');
+	test_encryption();
         boot_firmware();
     }
+}
+
+void test_encryption(void)
+{
+    uint8_t plaintext[16];
+    plaintext[0] = 0;
+    plaintext[1] = 1;
+    plaintext[2] = 2;
+    plaintext[3] = 3;
+    plaintext[4] = 4;
+    plaintext[5] = 5;
+    plaintext[6] = 6;
+    plaintext[7]= 7;
+    plaintext[12] = 1;
+    uint8_t key[16];
+    key[3] = 3;
+    key[5] = 5;
+    key[11] = 11;
+    key[13] = 3;
+    Encrypt(plaintext, key);
+    Decrypt(plaintext, key);    
 }
 
 /*
