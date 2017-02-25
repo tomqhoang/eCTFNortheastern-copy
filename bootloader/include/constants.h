@@ -44,10 +44,9 @@
  */
 #define BLOCK_SIZE 8
 #define KEY_SIZE 16
-#define ROUND_KEYS_SIZE 108 /* NUMBER_OF_ROUNDS * 4 */
-#define NUMBER_OF_ROUNDS 27
+#define ROUND_KEYS_SIZE 176
+#define NUMBER_OF_ROUNDS 44
 
-#define ALPHA 8
-#define BETA 3
+extern Z_BYTE Z_XOR_3[];
 
 #endif /* CONSTANTS_H */

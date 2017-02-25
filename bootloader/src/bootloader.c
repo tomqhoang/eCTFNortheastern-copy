@@ -36,9 +36,10 @@
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
-
 #include "encrypt.h"
 #include "decrypt.h"
+#include "encryption_key_schedule.h"
+#include <sha256.h>
 
 #define OK ((unsigned char) 0x00)
 #define ERROR ((unsigned char) 0x01)
@@ -78,23 +79,52 @@ int main(void) {
 
 void test_encryption(void)
 {
-    uint8_t plaintext[16];
-    plaintext[0] = 0;
-    plaintext[1] = 1;
-    plaintext[2] = 2;
-    plaintext[3] = 3;
-    plaintext[4] = 4;
-    plaintext[5] = 5;
-    plaintext[6] = 6;
-    plaintext[7]= 7;
-    plaintext[12] = 1;
-    uint8_t key[16];
+	// SIMON
+    uint8_t data[8] = {0};
+    for(int ii = 0; ii < 8; ii++) {
+		data[ii] = 3*ii;
+    }
+    uint8_t key[16] = {0};
     key[3] = 3;
     key[5] = 5;
     key[11] = 11;
-    key[13] = 3;
-    Encrypt(plaintext, key);
-    Decrypt(plaintext, key);    
+    key[13] = 7;
+
+
+    uint8_t round_keys[176] = {0};
+    RunEncryptionKeySchedule(key, round_keys);
+    Encrypt(data, round_keys);
+    Decrypt(data, round_keys);
+
+	for(int ii = 0; ii < 8; ii++) {
+		data[ii] = 4*ii + 1;
+	}
+	RunEncryptionKeySchedule(key, round_keys);
+	Encrypt(data, round_keys);
+	Decrypt(data, round_keys);
+
+	key[2] = 4;
+	key[5] = 22; 
+	key[10] = 23;
+	key[15] = 2;
+	RunEncryptionKeySchedule(key, round_keys);
+	Encrypt(data, round_keys);
+	Decrypt(data, round_keys);
+	//SHA256
+	uint8_t dest[32] = {0};
+	uint8_t sha_data[64];  
+	uint32_t length = 512;  
+    for(int ii = 0; ii < 64; ii++) {
+		sha_data[ii] = 5*ii % 3 + ii*3;
+    }
+	sha256(dest, sha_data, length); 
+
+	sha256(dest, sha_data, length);
+    for(int ii = 0; ii < 64; ii++) {
+		sha_data[ii] = 4*ii % 2 + ii*2;
+    }
+	sha256(dest, sha_data, length); 
+
 }
 
 /*

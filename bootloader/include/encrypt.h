@@ -1,6 +1,6 @@
-#ifndef SPECK_ENCRYPT_H
-#define SPECK_ENCRYPT_H
+#ifndef SIMON_ENCRYPT_H
+#define SIMON_ENCRYPT_H
 
-void __attribute__((naked)) Encrypt(uint8_t *block, uint8_t *roundKeys);
+void Encrypt(uint8_t *block, uint8_t *roundKeys);
 
 #endif

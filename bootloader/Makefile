@@ -30,6 +30,9 @@ INCLUDES = -I./include
 all:    flash.hex eeprom.hex
 	@echo  Simple bootloader has been compiled and packaged as intel hex.
 
+des.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/des.c -o des.o
+
 gf256mul.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/gf256mul.S -o gf256mul.o
 
@@ -54,14 +57,17 @@ aes256_enc.o: gf256mul.o
 aes256_dec.o: gf256mul.o
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes256_dec.c -o aes256_dec.o gf256mul.o
 
-encrypt.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/encrypt.c -o encrypt.o
+encrypt.o: constants.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/encrypt.c -o encrypt.o constants.o
 
-decrypt.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/decrypt.c -o decrypt.o
+encryption_key_schedule.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/encryption_key_schedule.c -o encryption_key_schedule.o
 
-trivium.o: 
-	$(CC) $(CFLAGS) $(INCLUDES) -c src/trivium.c -o trivium.o
+decrypt.o: constants.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/decrypt.c -o decrypt.o constants.o
+
+constants.o: 
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/constants.c -o constants.o
 
 sha2_small_common.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha2_small_common.c -o sha2_small_common.o
@@ -78,8 +84,8 @@ sys_startup.o:
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader_dbg.elf: uart.o sys_startup.o bootloader.o aes_dec.o aes_enc.o aes_sbox.o aes_keyschedule.o aes_invsbox.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o gf256mul.o aes_dec.o aes_enc.o aes256_dec.o aes256_enc.o aes_sbox.o aes_keyschedule.o aes_invsbox.o
+bootloader_dbg.elf: uart.o sys_startup.o bootloader.o encrypt.o decrypt.o encryption_key_schedule.o sha256.o 
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o encrypt.o decrypt.o constants.o encryption_key_schedule.o sha256.o sha2_small_common.o
 
 strip: bootloader_dbg.elf
 	$(STRIP) bootloader_dbg.elf -o bootloader.elf
