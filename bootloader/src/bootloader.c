@@ -37,9 +37,7 @@
 #include <avr/wdt.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
-#include "encrypt.h"
-#include "decrypt.h"
-#include "encryption_key_schedule.h"
+#include <cipher.h>
 #include <sha256.h>
 
 #define OK ((unsigned char) 0x00)
