@@ -8,8 +8,11 @@ import struct
 import json
 import zlib
 
+from hashlib import sha256
 from cStringIO import StringIO
 from intelhex import IntelHex
+import random, os, struct
+from simon import SimonCipher
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
@@ -28,6 +31,7 @@ if __name__ == '__main__':
     # Parse Intel hex file.
     firmware = IntelHex(args.infile)
 
+
     # Get version and size.
     firmware_size = firmware.maxaddr() + 1
     version = int(args.version)
@@ -38,15 +42,60 @@ if __name__ == '__main__':
     firmware.write_hex_file(sio)
     hex_data = sio.getvalue()
 
+    stripnewline = hex_data.replace('\n','');
+    rawdata = hex_data.replace(':','')
+
+    bindata = firmware.tobinstr()
+
+
+    #######################################
+    # Encryption of entire file using AES #
+    #######################################
+    chunksize = 16; #AES256 default
+
+    # This will be provided by D-H in Bootloader Configure Tool
+    password = 'secret-key-asymmetric'
+    key = sha256(password).digest()
+
+
+    # IV needs to be sent over with firmware unencrypted for ATMEGA
+    iv = ''.join(chr(random.randint(0, 0xFF)) for i in range(16))
+
+    encryptObj = AES.new(key,AES.MODE_CBC, iv)
+
+    file_size = len(bindata)
+
+    if(len(bindata) % 16 != 0):
+        bindata = bindata + ''.join(['\x95' for i in range(16 - (len(bindata) % 16))])
+    
+    #import pdb; pdb.set_trace()
+    encryptedFirmware = encryptObj.encrypt(bindata)
+
+
+
+    # Sign Result
+    # Save as Version-Bytes
+    ints = []
+	version_hex = struct.pack('<H', version)
+	version_hex = version_hex + ''.join(['\x00' for i in range(30)])
+    version_hash = sha256(str(version_hex)).hexdigest()
+    file = open('version_hash.txt','wb')
+    for i in xrange(0,63,2):
+        file.write(str(int(version_hash[i:i+2],16)) + " ")
+    #import pdb; pdb.set_trace()
+
+    # Encrypt message
+    file.close()
+
+    os.system("./sign")
+
+    
     # Encode the data as json and write to outfile.
     data = {
         'firmware_size' : firmware_size,
-        'version' : version,
-        'hex_data' : hex_data
+        'file_size' : file_size,
+        'version' : version_bytes,
+        'bin_data' : encryptedFirmware
     }
 
-    with open(args.outfile, 'wb+') as outfile:
-        data = json.dumps(data)
-        data = zlib.compress(data)
-        outfile.write(data)
-
+    with open(args

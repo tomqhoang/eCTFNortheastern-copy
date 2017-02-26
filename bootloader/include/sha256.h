@@ -103,6 +103,6 @@ void sha256_ctx2hash(void* dest, const sha256_ctx_t* state);
  * \param msg pointer to the message thats going to be hashed
  * \param length_b length of the message in bits
  */
-void sha256(void* dest, const void* msg, uint32_t length_b);
+void sha256(uint8_t* dest, const uint8_t* msg, uint32_t length_b);
 
 #endif /*SHA256_H_*/

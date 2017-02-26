@@ -31,7 +31,7 @@
 
 #include <stdint.h>
 #include <string.h> /* for memcpy, memmove, memset */
-#include <avr/pgmspace.h>
+//#include <avr/pgmspace.h>
 #include "sha2_small_common.h"
 #include "sha256.h"
 
@@ -47,7 +47,7 @@
 /*************************************************************************/
 
 const
-uint32_t sha256_init_vector[] PROGMEM = {
+uint32_t volatile sha256_init_vector[8] = {
 	0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A,
     0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19 };
 
@@ -62,9 +62,16 @@ uint32_t sha256_init_vector[] PROGMEM = {
  */
 void sha256_init(sha256_ctx_t *state){
 	state->length=0;
-	memcpy_P(state->h, sha256_init_vector, 8*4);
+	state->h[0] = 0x6A09E667;
+	state->h[1] = 0xBB67AE85;
+	state->h[2] = 0x3C6EF372;
+	state->h[3] = 0xA54FF53A;
+	state->h[4] = 0x510E527F;
+	state->h[5] = 0x9B05688C;
+	state->h[6] = 0x1F83D9AB;
+	state->h[7] = 0x5BE0CD19;
+	// memcpy(state->h, sha256_init_vector, 8*4);
 }
-
 /*************************************************************************/
 void sha256_nextBlock (sha256_ctx_t *state, const void* block){
 	sha2_small_common_nextBlock(state, block);
@@ -90,7 +97,7 @@ void sha256_lastBlock (sha256_ctx_t *state, const void* block, uint16_t length_b
 /*
  * length in bits!
  */
-void sha256(void* dest, const void* msg, uint32_t length_b){ /* length could be choosen longer but this is for µC */
+void sha256(uint8_t* dest, const uint8_t* msg, uint32_t length_b){ /* length could be choosen longer but this is for µC */
 	sha256_ctx_t s;
 	sha256_init(&s);
 	while(length_b >= SHA256_BLOCK_BITS){

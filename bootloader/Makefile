@@ -16,7 +16,7 @@ PROGRAMMER = dragon_jtag
 CDEFS = -g3 -ggdb3 -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DRB_PASSWORD=\"${PASSWORD}\"
 CLINKER = -nostartfiles -Wl,--section-start=.text=0x1E000 -Wl,-Map,bootloader.map
 CWARN =  -Wall
-COPT = -std=gnu99 -Os -fno-tree-scev-cprop -mcall-prologues \
+COPT = -std=gnu99 -O1 -fno-tree-scev-cprop -mcall-prologues \
        -fno-inline-small-functions -fsigned-char
 
 CFLAGS  = $(CDEFS) $(CLINKER) $(CWARN) $(COPT)
@@ -84,8 +84,8 @@ sys_startup.o:
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader_dbg.elf: uart.o sys_startup.o bootloader.o encrypt.o decrypt.o encryption_key_schedule.o sha256.o 
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o encrypt.o decrypt.o constants.o encryption_key_schedule.o sha256.o sha2_small_common.o
+bootloader_dbg.elf: uart.o sys_startup.o bootloader.o sha256.o encrypt.o decrypt.o encryption_key_schedule.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o sha256.o sha2_small_common.o encrypt.o decrypt.o encryption_key_schedule.o constants.o
 
 strip: bootloader_dbg.elf
 	$(STRIP) bootloader_dbg.elf -o bootloader.elf
@@ -97,7 +97,7 @@ flash.hex: strip
 eeprom.hex: strip
 	$(OBJCOPY) -j .eeprom --set-section-flags=.eeprom="alloc,load" --change-section-lma .eeprom=0 -O ihex bootloader.elf eeprom.hex
 
-flash: flash.hex eeprdom.hex
+flash: flash.hex eeprom.hex
 	 avrdude -P usb -p m1284p -c $(PROGRAMMER)  -u -U flash:w:flash.hex:i \
 						    -U eeprom:w:eeprom.hex:i \
 						    -U lfuse:w:lfuse.hex:i \
