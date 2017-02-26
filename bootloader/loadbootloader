@@ -1,0 +1,7 @@
+#!/bin/bash
+
+cd ../host_tools/
+./bl_build
+sleep 1
+./avrProgram
+cd ../bootloader/
