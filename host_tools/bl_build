@@ -8,6 +8,7 @@ copying the build outputs into the host tools directory for programming.
 """
 import os
 import sys
+import json
 import shutil
 import subprocess
 import argparse
@@ -24,7 +25,9 @@ def generate_readback_password():
 
     # Write password to secret file
     with open('secret_build_output.txt', 'wb+') as secret_build_output:
-        secret_build_output.write(pw)
+        data = { 'password' : pw }
+        data = json.dumps(data)
+        secret_build_output.write(data)
     return pw
 
 def make(password=None):

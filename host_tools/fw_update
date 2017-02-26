@@ -31,12 +31,10 @@ from intelhex import IntelHex
 
 RESP_OK = b'\x00'
 
-
 class Firmware(object):
     """
     Helper for making frames.
     """
-
     BLOCK_SIZE = 16
 
     def __init__(self, fw_filename):
