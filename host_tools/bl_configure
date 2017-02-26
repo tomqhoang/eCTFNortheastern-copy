@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+
 """
 Bootloader Configuration Tool
 
 This tool is responsible for configuring the bootloader after it is programmed.
 """
-import argparse
 import os
+import argparse
 import serial
 import shutil
 
@@ -33,12 +34,10 @@ def configure_bootloader(serial_port):
     # the serial port it could be added here.
     pass
 
-
 if __name__ == '__main__':
     # Argument parser setup.
     parser = argparse.ArgumentParser(description='Bootloader Config Tool')
-    parser.add_argument('--port', help='Serial port to use for configuration.',
-                        required=True)
+    parser.add_argument('--port', help='Serial port to use for configuration.', required=True)
     args = parser.parse_args()
 
     # Create serial connection using specified port.
@@ -50,6 +49,4 @@ if __name__ == '__main__':
     finally:
         serial_port.close()
 
-    # Generate secret file.
     generate_secret_file()
-

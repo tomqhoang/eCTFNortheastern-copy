@@ -113,5 +113,5 @@ debug: flash.hex eeprom.hex
 
 
 clean:
-	$(RM) -v *.hex *.o *.elf $(MAIN)
+	$(RM) -v *.hex *.o *.elf *.map $(MAIN)
 
