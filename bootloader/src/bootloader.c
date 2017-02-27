@@ -104,7 +104,7 @@ void test_encryption(void)
     //SHA256
     uint8_t dest[32] = {0};
     uint8_t sha_data[64];  
-    uint32_t length = 512;  
+    uint32_t length = 0;  
     uint8_t input_data[64] = {0};
     sha256(dest, input_data, length);
 }
