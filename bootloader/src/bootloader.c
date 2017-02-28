@@ -30,7 +30,6 @@
 #include <avr/io.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 #include <util/delay.h>
 #include "uart.h"
 #include <avr/boot.h>
@@ -59,8 +58,8 @@ int main(void) {
     UART0_init();  // Init UART0
     wdt_reset();
 
-    DDRB &= ~((1 << PB2) | (1 << PB3));  // Configure Port B Pins 2 and 3 as inputs
-    PORTB |= (1 << PB2) | (1 << PB3);  // Enable pullups - give port time to settle
+    DDRB &= ~((1 << PB2) | (1 << PB3) | (1 << PB4));  // Configure Port B Pins 2 and 3 as inputs
+    PORTB |= (1 << PB2) | (1 << PB3) | (1 << PB4);  // Enable pullups - give port time to settle
 
     // If jumper is present on pin 2, load new firmware
     if (!(PINB & (1 << PB2))) {
@@ -71,16 +70,13 @@ int main(void) {
         UART1_putchar('R');
         readback();
     }
+    else if (!(PINB & (1 << PB4))) {
+        UART1_putchar('K');
+        store_secret_info();
+    }
     else {
         UART1_putchar('B');
-	uint32_t array[4];
-	array[0] = 0x1582bacf;
-	array[1] = 0x12345678;
-
-	uint32_t arrat2[4];
-	array[0] = 0x12312312;
-	array[4] = 0x87654321;
-	test_encryption();
+	    //:test_encryption();
         boot_firmware();
     }
 }
@@ -92,7 +88,6 @@ void test_encryption(void)
     for(int ii = 0; ii < 8; ii++) {
 		data[ii] = 3*ii;
     }
-    uint8_t round_keys[176] = {0};
     uint8_t key[16] = {0};
     key[3] = 3;
     key[5] = 5;
@@ -100,15 +95,40 @@ void test_encryption(void)
     key[13] = 7;
 
 
+    uint8_t round_keys[176] = {0};
     RunEncryptionKeySchedule(key, round_keys);
     Encrypt(data, round_keys);
     Decrypt(data, round_keys);
-    //SHA256
-    uint8_t dest[32] = {0};
-    uint8_t sha_data[64];  
-    uint32_t length = 512;  
-    uint8_t input_data[64] = {0};
-    sha256(dest, input_data, length);
+
+	for(int ii = 0; ii < 8; ii++) {
+		data[ii] = 4*ii + 1;
+	}
+	RunEncryptionKeySchedule(key, round_keys);
+	Encrypt(data, round_keys);
+	Decrypt(data, round_keys);
+
+	key[2] = 4;
+	key[5] = 22; 
+	key[10] = 23;
+	key[15] = 2;
+	RunEncryptionKeySchedule(key, round_keys);
+	Encrypt(data, round_keys);
+	Decrypt(data, round_keys);
+	//SHA256
+	uint8_t dest[32] = {0};
+	uint8_t sha_data[64];  
+	uint32_t length = 512;  
+    for(int ii = 0; ii < 64; ii++) {
+		sha_data[ii] = 5*ii % 3 + ii*3;
+    }
+	sha256(dest, sha_data, length); 
+
+	sha256(dest, sha_data, length);
+    for(int ii = 0; ii < 64; ii++) {
+		sha_data[ii] = 4*ii % 2 + ii*2;
+    }
+	sha256(dest, sha_data, length); 
+
 }
 
 /*
@@ -286,4 +306,45 @@ void program_flash(uint32_t page_address, unsigned char* data) {
 
     boot_page_write_safe(page_address);
     boot_rww_enable_safe();  // We can just enable it after every program too
+}
+
+void store_secret_info(void){
+    uint8_t pwLength = 0; //password length as received by the bl_configure tool
+    uint8_t keyLength =0; //key length as received by the bl_configure tool
+
+    uint8_t password[32] = {0};
+    uint8_t simonKey[8] = {0};
+    unsigned int pw_index = 0;
+    unsigned int simon_index =0;
+    wdt_enable(WDTO_2S);  // Start the Watchdog Timer
+
+    wdt_reset();
+
+    // Get one byte for the key length (bytes).
+    pwLength = UART1_getchar();
+
+    UART0_putchar((unsigned char)pwLength);
+    wdt_reset();
+
+    // Get the number of bytes specified
+    for(int i = 0; i < pwLength; ++i){
+        wdt_reset();
+        password[pw_index] = UART1_getchar();
+        pw_index += 1;
+    }
+    wdt_reset();
+
+
+    // Get one byte for the key length (bytes).
+    keyLength = UART1_getchar();
+
+    UART0_putchar((unsigned char)keyLength);
+    wdt_reset();
+
+    // Get the number of bytes specified
+    for(int i = 0; i < keyLength; ++i){
+        wdt_reset();
+        simonKey[simon_index] = UART1_getchar();
+        simon_index += 1;
+    }
 }
