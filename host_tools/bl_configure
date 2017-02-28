@@ -2,51 +2,88 @@
 
 """
 Bootloader Configuration Tool
-
 This tool is responsible for configuring the bootloader after it is programmed.
 """
-import os
+import json
 import argparse
 import serial
+import os
 import shutil
-
+from Crypto import Random
 FILE_PATH = os.path.abspath(__file__)
 
-def generate_secret_file():
+def generate_secret_file(confKey):
     """
     Compile all secrets from build and configuration and store to secret file.
+    Returns secret
     """
     # Get directory containing this file (host_tools).
     directory = os.path.dirname(FILE_PATH)
+    pathSecretConfigure = os.path.join(directory, 'secret_configure_output.txt')
+    if os.path.exists(pathSecretConfigure):
+        print "Removing Secret Path"
+        os.remove(pathSecretConfigure)
+    f = open(pathSecretConfigure, 'a')
+    r = open(os.path.join(directory, 'secret_build_output.txt'), 'r')
+    
 
     # Copy secret build output to secret configure output.
-    shutil.copyfile(os.path.join(directory, 'secret_build_output.txt'),
-                    os.path.join(directory, 'secret_configure_output.txt'))
+    # shutil.copyfile(os.path.join(directory, 'secret_build_output.txt'),
+    #                 os.path.join(directory, 'secret_configure_output.txt'))
+    data = json.loads(r.read())
+    data['SIMONKEY'] = confKey
 
     # If there were additional secret parameters to output, the file could be
     # edited here.
+    f.write(json.dumps(data))
+    f.close()
+    
+    return data['password']
 
-def configure_bootloader(serial_port):
+def configure_bootloader(UART0, UART1):
+    confKey = Random.new().read(8).encode('hex')  #generates a key of 256 bits
+    password = generate_secret_file(confKey)
+    print(confKey)
     """
     Configure bootloader using serial connection.
+    If there were online configuration or checking of the bootloader using
+    the serial port it could be added here.
     """
-    # If there were online configuration or checking of the bootloader using
-    # the serial port it could be added here.
-    pass
+    print('Waiting for bootloader availability to receive key...')
 
+    while UART0.read(1) != 'K':
+        pass
+
+    UART1.write(len(password))
+
+    while UART0.read(1) != str(len(password)):
+        pass       
+
+    UART1.write(password)
+
+    UART1.write(len(confKey))
+
+    while UART0.read(1) != str(len(confKey)):
+        pass       
+
+    UART1.write(confKey)
+   # Argument parser setup.
 if __name__ == '__main__':
-    # Argument parser setup.
     parser = argparse.ArgumentParser(description='Bootloader Config Tool')
-    parser.add_argument('--port', help='Serial port to use for configuration.', required=True)
+    parser.add_argument('--UART0', help='Serial port for receiving data.',
+                         required=True)
+    parser.add_argument('--UART1', help='Serial port for sending data.',
+                         required=True)
     args = parser.parse_args()
 
-    # Create serial connection using specified port.
-    serial_port = serial.Serial(args.port)
+    # Create serial connection using specified ports/
+    UART0 = serial.Serial(args.UART0, baudrate=115200, timeout=2)
+    UART1 = serial.Serial(args.UART1, baudrate=115200, timeout=2)
 
     # Do configuration and then close port.
     try:
-        configure_bootloader(serial_port)
+        configure_bootloader(UART0, UART1)
     finally:
-        serial_port.close()
-
-    generate_secret_file()
+        UART0.close()
+        UART1.close()
+        exit()

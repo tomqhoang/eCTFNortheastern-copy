@@ -15,3 +15,6 @@ ubuntu-xenial-16.04-cloudimg-console.log
 *.hex
 *.elf
 secret_*_output.txt
+*.swp
+*.DS_Store
+*.orig

@@ -19,7 +19,7 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <avr/pgmspace.h>
+//#include <avr/pgmspace.h>
 #include "sha2_small_common.h"
 
 
@@ -58,8 +58,9 @@ uint32_t change_endian32(uint32_t x){
 #define SIGMA_a(x) (rotr32((x), 7) ^ rotl32((x),14) ^ ((x)>>3))
 #define SIGMA_b(x) (rotl32((x),15) ^ rotl32((x),13) ^ ((x)>>10))
 
+/*
 const
-uint32_t k[] PROGMEM = {
+uint32_t k[] = {
 	0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
 	0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
 	0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
@@ -69,13 +70,87 @@ uint32_t k[] PROGMEM = {
 	0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
 	0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
-
-
+*/
 
 /**
  * block must be, 512, Bit = 64, Byte, long !!!
  */
 void sha2_small_common_nextBlock (sha2_small_common_ctx_t *state, const void* block){
+
+	uint32_t k[64];
+
+	k[0] = 0x428a2f98;
+k[1] = 0x71374491;
+k[2] = 0xb5c0fbcf;
+k[3] = 0xe9b5dba5;
+k[4] = 0x3956c25b;
+k[5] = 0x59f111f1;
+k[6] = 0x923f82a4;
+k[7] = 0xab1c5ed5;
+k[8] =
+    0xd807aa98;
+k[9] = 0x12835b01;
+k[10] = 0x243185be;
+k[11] = 0x550c7dc3;
+k[12] = 0x72be5d74;
+k[13] = 0x80deb1fe;
+k[14] = 0x9bdc06a7;
+k[15] = 0xc19bf174;
+k[16] =
+    0xe49b69c1;
+k[17] = 0xefbe4786;
+k[18] = 0x0fc19dc6;
+k[19] = 0x240ca1cc;
+k[20] = 0x2de92c6f;
+k[21] = 0x4a7484aa;
+k[22] = 0x5cb0a9dc;
+k[23] = 0x76f988da;
+k[24] =
+    0x983e5152;
+k[25] = 0xa831c66d;
+k[26] = 0xb00327c8;
+k[27] = 0xbf597fc7;
+k[28] = 0xc6e00bf3;
+k[29] = 0xd5a79147;
+k[30] = 0x06ca6351;
+k[31] = 0x14292967;
+k[32] =
+    0x27b70a85;
+k[33] = 0x2e1b2138;
+k[34] = 0x4d2c6dfc;
+k[35] = 0x53380d13;
+k[36] = 0x650a7354;
+k[37] = 0x766a0abb;
+k[38] = 0x81c2c92e;
+k[39] = 0x92722c85;
+k[40] =
+    0xa2bfe8a1;
+k[41] = 0xa81a664b;
+k[42] = 0xc24b8b70;
+k[43] = 0xc76c51a3;
+k[44] = 0xd192e819;
+k[45] = 0xd6990624;
+k[46] = 0xf40e3585;
+k[47] = 0x106aa070;
+k[48] =
+    0x19a4c116;
+k[49] = 0x1e376c08;
+k[50] = 0x2748774c;
+k[51] = 0x34b0bcb5;
+k[52] = 0x391c0cb3;
+k[53] = 0x4ed8aa4a;
+k[54] = 0x5b9cca4f;
+k[55] = 0x682e6ff3;
+k[56] =
+    0x748f82ee;
+k[57] = 0x78a5636f;
+k[58] = 0x84c87814;
+k[59] = 0x8cc70208;
+k[60] = 0x90befffa;
+k[61] = 0xa4506ceb;
+k[62] = 0xbef9a3f7;
+k[63] = 0xc67178f2;
+
 	uint32_t w[16], wx;
 	uint8_t  i;
 	uint32_t a[8],t1,t2;
@@ -105,7 +180,7 @@ void sha2_small_common_nextBlock (sha2_small_common_ctx_t *state, const void* bl
 			memmove(&(w[0]), &(w[1]), 15*4);
 			w[15] = wx;
 		}
-		t1 = a[7] + SIGMA_1(a[4]) + CH(a[4],a[5],a[6]) + pgm_read_dword(&k[i]) + wx;
+		t1 = a[7] + SIGMA_1(a[4]) + CH(a[4],a[5],a[6]) + (k[i]) + wx;
 		t2 = SIGMA_0(a[0]) + MAJ(a[0],a[1],a[2]);
 		memmove(&(a[1]), &(a[0]), 7*4); 	/* a[7]=a[6]; a[6]=a[5]; a[5]=a[4]; a[4]=a[3]; a[3]=a[2]; a[2]=a[1]; a[1]=a[0]; */
 		a[4] += t1;
