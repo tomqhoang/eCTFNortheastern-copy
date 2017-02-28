@@ -1,0 +1,6 @@
+#!/bin/bash
+
+cd ../host_tools
+./bl_build
+sleep 2
+./avrProgram
