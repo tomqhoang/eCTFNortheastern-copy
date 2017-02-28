@@ -10,12 +10,13 @@ PASSWORD ?= password
 CC = avr-gcc
 STRIP  = avr-strip
 OBJCOPY = avr-objcopy
+PROGRAMMER = dragon_jtag
 
 # Compiler configurations.
-CDEFS = -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DRB_PASSWORD=\"${PASSWORD}\"
-CLINKER = -nostartfiles -Wl,--section-start=.text=0x1E000
+CDEFS = -g3 -ggdb3 -mmcu=${MCU} -DF_CPU=${F_CPU} -DBAUD=${BAUD} -DRB_PASSWORD=\"${PASSWORD}\"
+CLINKER = -nostartfiles -Wl,--section-start=.text=0x1E000 -Wl,-Map,bootloader.map
 CWARN =  -Wall
-COPT = -std=gnu99 -Os -fno-tree-scev-cprop -mcall-prologues \
+COPT = -std=gnu99 -O1 -fno-tree-scev-cprop -mcall-prologues \
        -fno-inline-small-functions -fsigned-char
 
 CFLAGS  = $(CDEFS) $(CLINKER) $(CWARN) $(COPT)
@@ -29,6 +30,51 @@ INCLUDES = -I./include
 all:    flash.hex eeprom.hex
 	@echo  Simple bootloader has been compiled and packaged as intel hex.
 
+des.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/des.c -o des.o
+
+gf256mul.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/gf256mul.S -o gf256mul.o
+
+aes_dec.o: gf256mul.o aes256_enc.o aes256_dec.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes_dec.c -o aes_dec.o gf256mul.o aes256_enc.o aes256_dec.o
+
+aes_enc.o: gf256mul.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes_enc.c -o aes_enc.o gf256mul.o
+
+aes_sbox.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes_sbox.c -o aes_sbox.o
+
+aes_invsbox.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes_invsbox.c -o aes_invsbox.o
+
+aes_keyschedule.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes_keyschedule.c -o aes_keyschedule.o
+
+aes256_enc.o: gf256mul.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes256_enc.c -o aes256_enc.o gf256mul.o
+
+aes256_dec.o: gf256mul.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/aes256_dec.c -o aes256_dec.o gf256mul.o
+
+encrypt.o: constants.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/encrypt.c -o encrypt.o constants.o
+
+encryption_key_schedule.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/encryption_key_schedule.c -o encryption_key_schedule.o
+
+decrypt.o: constants.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/decrypt.c -o decrypt.o constants.o
+
+constants.o: 
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/constants.c -o constants.o
+
+sha2_small_common.o:
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha2_small_common.c -o sha2_small_common.o
+
+sha256.o: sha2_small_common.o
+	$(CC) $(CFLAGS) $(INCLUDES) -c src/sha256.c -o sha256.o sha2_small_common.o
+
 uart.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/uart.c
 
@@ -38,17 +84,33 @@ sys_startup.o:
 bootloader.o:
 	$(CC) $(CFLAGS) $(INCLUDES) -c src/bootloader.c
 
-bootloader.elf: uart.o sys_startup.o bootloader.o
-	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader.elf uart.o sys_startup.o bootloader.o
+bootloader_dbg.elf: uart.o sys_startup.o bootloader.o sha256.o encrypt.o decrypt.o encryption_key_schedule.o
+	$(CC) $(CFLAGS) $(INCLUDES) -o bootloader_dbg.elf uart.o sys_startup.o bootloader.o sha256.o sha2_small_common.o encrypt.o decrypt.o encryption_key_schedule.o constants.o
 
-strip: bootloader.elf
-	$(STRIP) bootloader.elf -o bootloader.elf
+strip: bootloader_dbg.elf
+	$(STRIP) bootloader_dbg.elf -o bootloader.elf
 
 flash.hex: strip
 	$(OBJCOPY) -R .eeprom -O ihex bootloader.elf flash.hex
+	avr-size flash.hex
 
 eeprom.hex: strip
 	$(OBJCOPY) -j .eeprom --set-section-flags=.eeprom="alloc,load" --change-section-lma .eeprom=0 -O ihex bootloader.elf eeprom.hex
+
+flash: flash.hex eeprom.hex
+	 avrdude -P usb -p m1284p -c $(PROGRAMMER)  -u -U flash:w:flash.hex:i \
+						    -U eeprom:w:eeprom.hex:i \
+						    -U lfuse:w:lfuse.hex:i \
+						    -U hfuse:w:hfuse.hex:i \
+						    -U efuse:w:efuse.hex:i
+
+debug: flash.hex eeprom.hex
+	# Launch avarice: a tool that creates a debug server for the AVR and Dragon
+	avarice -R -g :4242 &
+	# Launch the avr debugger avr-gdb. The configuation for this tool is included 
+	# in .gdbinit
+	avr-gdb
+
 
 clean:
 	$(RM) -v *.hex *.o *.elf $(MAIN)
