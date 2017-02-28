@@ -1,5 +1,6 @@
 #!/bin/bash
 
+make clean
 cd ../host_tools/
 ./bl_build
 sleep 1
