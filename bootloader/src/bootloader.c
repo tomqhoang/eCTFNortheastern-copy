@@ -88,18 +88,9 @@ int main(void) {
 void test_encryption(void)
 {
 	// SIMON
-    uint8_t data[8] = {0};
-    for(int ii = 0; ii < 8; ii++) {
-		data[ii] = 3*ii;
-    }
+    uint8_t data[16] = {0};
     uint8_t round_keys[176] = {0};
-    uint8_t key[16] = {0};
-    key[3] = 3;
-    key[5] = 5;
-    key[11] = 11;
-    key[13] = 7;
-
-
+    uint8_t key[8] = {0};
     RunEncryptionKeySchedule(key, round_keys);
     Encrypt(data, round_keys);
     Decrypt(data, round_keys);
