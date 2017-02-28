@@ -44,6 +44,8 @@ void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
 void boot_firmware(void);
 void readback(void);
+int versioning(uint32_t rcv_hash, uint32_t* pages); 
+void versioning(uint32_t rcv_hash, uint16_t version,  uint32_t* pages);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
@@ -247,3 +249,22 @@ void program_flash(uint32_t page_address, unsigned char* data) {
     boot_page_write_safe(page_address);
     boot_rww_enable_safe();  // We can just enable it after every program too
 }
+
+// Computes the hash on an array of hashes the same way that the hash is computed
+// in the build and protect tool. 
+// rcv_hash: hash value received from the update_tool
+// version: 16 bit integer representing the version to set if authenticated
+// pages: actual data that needs to be hashed
+// returns: No return value
+void versioning(uint8_t rcv_hash[32], uint16_t version,  uint32_t* pages) {
+    // compute hash the same way that the hash was computed in b&p
+    for (int ii = 0; ii < 32; ii++) {
+	if (rcv_hash[ii] != computed_hash[ii]) {
+	    return;
+	}
+    }
+    // set the version because the hashes match
+    return
+
+}
+ 
