@@ -15,6 +15,10 @@ import random, os, struct
 #from Crypto.Cipher import AES
 from simon import SimonCipher
 
+def swap_order(d, wsz=4, gsz=2 ):
+        return "".join(["".join([m[i:i+gsz] for i in range(wsz-gsz,-gsz,-gsz)]) for m in [d[i:i+wsz] for i in range(0,len(d),wsz)]])
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
 
@@ -47,7 +51,7 @@ if __name__ == '__main__':
 
 
     #create simon cipher, key goes in here in 0xhex, or int('hex-string-here',16)
-    my_simon = SimonCipher(0xABBAABBAABBAABBAABBAABBAABBAABBA)
+    my_simon = SimonCipher(0,key_size=128, block_size=64)
 
     # split each line
     byline = hex_data.splitlines()
@@ -56,7 +60,7 @@ if __name__ == '__main__':
     encrypted_byline = byline[0:2]
 
     # only use data lines
-    byline_data = byline[2:-1]
+    byline_data = byline[2:-2]
 
     # for hash output
     hash_input_temp = ''
@@ -68,37 +72,44 @@ if __name__ == '__main__':
         numBytes = int(line[1:3],16);
         # get data hex values
         data = line[9:9+numBytes*2]
-        #pdb.set_trace()
+        
         # encrypt the 16B using simon
-        encryptedData = my_simon.encrypt(int(data,16))
+        data1 = data[0:16];
+        data2 = data[16:];
+        encrypted1 = hex(my_simon.encrypt(int(data1,16)))[2:-1]
+        encrypted2 = hex(my_simon.encrypt(int(data2,16)))[2:-1]
+        swapped1 = swap_order(encrypted1,wsz = 16, gsz=2)
+        swapped2 = swap_order(encrypted2, wsz = 16, gsz = 2)
+        encryptedData = swapped1 + swapped2;
         # create new line with encrypted data, convert to hex string
-        encryptedline = line[0:9] + hex(encryptedData)[2:-1] + line[-2:]
+        encryptedline = line[0:9] + encryptedData + line[-2:]
         if(i == 16):
             i = 0;
             hash_input.append((hash_input_temp))
         else:
             i = i+1
-            hash_input_temp = hash_input_temp + hex(encryptedData)[2:-1]
+            hash_input_temp = hash_input_temp + encryptedData
 
         encrypted_byline.append(encryptedline)
 
+    pdb.set_trace()
 
     # add the last line back
-    encrypted_byline.append(byline[-1])
+    encrypted_byline.extend(byline[-2:])
     # go back to intel_hex SIO() format for hex_data
     encrypted_hex_data = "\n".join(encrypted_byline)
 
-    #HASH for pages
+    # #HASH for pages
     tags = []
-    for input_data in hash_input:
-        hash_local = sha256(input_data).hexdigest()
-        first_half = hex(my_simon.encrypt(int(hash_local[0:32],16)))[2:-1]
-        second_half = hex(my_simon.encrypt(int(hash_local[32:],16)))[2:-1]
-        tags.append(first_half+second_half)
+    # for input_data in hash_input:
+    #     hash_local = sha256(input_data).hexdigest()
+    #     first_half = hex(my_simon.encrypt(int(hash_local[0:32],16)))[2:-1]
+    #     second_half = hex(my_simon.encrypt(int(hash_local[32:],16)))[2:-1]
+    #     tags.append(first_half+second_half)
 
     # Sign Result
     # Save as Version-Bytes
-    pdb.set_trace()
+    #pdb.set_trace()
 
     # 16-bit 2B integer representation
     version_bytes = struct.pack('<H',version)
