@@ -45,7 +45,7 @@ if __name__ == '__main__':
 
     # Hex data is in IntelHex format, see wikipedia article on formatting
 
-    
+
     #create simon cipher, key goes in here in 0xhex, or int('hex-string-here',16)
     my_simon = SimonCipher(0xABBAABBAABBAABBAABBAABBAABBAABBA)
 
@@ -58,6 +58,10 @@ if __name__ == '__main__':
     # only use data lines
     byline_data = byline[2:-1]
 
+    # for hash output
+    hash_input_temp = ''
+    hash_input = []
+    i = 0
     # for each line with data
     for line in byline_data:
         # read numBytes in line
@@ -69,16 +73,32 @@ if __name__ == '__main__':
         encryptedData = my_simon.encrypt(int(data,16))
         # create new line with encrypted data, convert to hex string
         encryptedline = line[0:9] + hex(encryptedData)[2:-1] + line[-2:]
+        if(i == 16):
+            i = 0;
+            hash_input.append((hash_input_temp))
+        else:
+            i = i+1
+            hash_input_temp = hash_input_temp + hex(encryptedData)[2:-1]
+
         encrypted_byline.append(encryptedline)
+
 
     # add the last line back
     encrypted_byline.append(byline[-1])
     # go back to intel_hex SIO() format for hex_data
     encrypted_hex_data = "\n".join(encrypted_byline)
 
+    #HASH for pages
+    tags = []
+    for input_data in hash_input:
+        hash_local = sha256(input_data).hexdigest()
+        first_half = hex(my_simon.encrypt(int(hash_local[0:32],16)))[2:-1]
+        second_half = hex(my_simon.encrypt(int(hash_local[32:],16)))[2:-1]
+        tags.append(first_half+second_half)
 
     # Sign Result
     # Save as Version-Bytes
+    pdb.set_trace()
 
     # 16-bit 2B integer representation
     version_bytes = struct.pack('<H',version)
@@ -94,7 +114,8 @@ if __name__ == '__main__':
         'firmware_size' : firmware_size,
         'version_bytes'  : version_bytes,
         'version_sig' : version_sig,
-        'hex_data' : encrypted_hex_data
+        'hex_data' : encrypted_hex_data,
+        'tags' : tags
     }
 
     with open(args.outfile, 'wb+') as outfile:
