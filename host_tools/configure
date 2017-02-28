@@ -1,0 +1,2 @@
+#!/bin/bash
+./bl_configure --UART0 /dev/ttyUSB0 --UART1 /dev/ttyUSB1

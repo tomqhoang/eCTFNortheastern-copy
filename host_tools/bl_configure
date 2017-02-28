@@ -30,23 +30,23 @@ def generate_secret_file(confKey):
     # shutil.copyfile(os.path.join(directory, 'secret_build_output.txt'),
     #                 os.path.join(directory, 'secret_configure_output.txt'))
     data = json.loads(r.read())
+    data['SIMONKEY'] = confKey
 
     # If there were additional secret parameters to output, the file could be
     # edited here.
-    f.write(json.dumps([data, {"SIMONKEY": confkey}]))
+    f.write(json.dumps(data))
     f.close()
     
     return data['password']
 
 def configure_bootloader(UART0, UART1):
-    confKey = Random.new().read(8) #generates a key of 256 bits
+    confKey = Random.new().read(8).encode('hex')  #generates a key of 256 bits
     password = generate_secret_file(confKey)
     print(confKey)
     """
     Configure bootloader using serial connection.
     If there were online configuration or checking of the bootloader using
     the serial port it could be added here.
-
     """
     print('Waiting for bootloader availability to receive key...')
 
