@@ -44,10 +44,10 @@ def configure_bootloader(UART0, UART1):
     print(confKey)
     """
     Configure bootloader using serial connection.
-    """
     If there were online configuration or checking of the bootloader using
     the serial port it could be added here.
 
+    """
     print('Waiting for bootloader availability to receive key...')
 
     while UART0.read(1) != 'K':
