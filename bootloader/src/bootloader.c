@@ -89,20 +89,14 @@ void test_encryption(void)
 {
 	// SIMON
     uint8_t data[8] = {0};
-    for(int ii = 0; ii < 8; ii++) {
-		data[ii] = 3*ii;
-    }
+    data[0] = 1; 
     uint8_t round_keys[176] = {0};
     uint8_t key[16] = {0};
-    key[3] = 3;
-    key[5] = 5;
-    key[11] = 11;
-    key[13] = 7;
-
 
     RunEncryptionKeySchedule(key, round_keys);
     Encrypt(data, round_keys);
     Decrypt(data, round_keys);
+
     //SHA256
     uint8_t dest[32] = {0};
     uint8_t sha_data[64];  
@@ -154,6 +148,12 @@ void load_firmware(void) {
     unsigned int page = 0;
     uint16_t version = 0;
     uint16_t size = 0;
+    uint8_t key[16] = {0};
+    uint8_t round_keys[176] = {0};
+    uint8_t sig[32] = {0};
+    uint8_t page_hash[32] = {0};
+    unsigned int sig_index = 0;
+    RunEncryptionKeySchedule(key, round_keys);
 
     wdt_enable(WDTO_2S);  // Start the Watchdog Timer
 
@@ -211,10 +211,34 @@ void load_firmware(void) {
             data[data_index] = UART1_getchar();
             data_index += 1;
         }
-
+	
+	
         // If we filed our page buffer, program it
         if(data_index == SPM_PAGESIZE || frame_length == 0) {
-            wdt_reset();
+            UART1_putchar(OK);
+	    sig_index = 0;
+	    for(int i = 0; i < 32; i++){
+	    	wdt_reset();
+		sig[sig_index] = UART1_getchar();
+		sig_index++;
+	    }
+	    sha256(page_hash, data, (uint32_t) 2048);
+            Encrypt(page_hash,round_keys);
+            Encrypt(page_hash+8, round_keys);
+            Encrypt(page_hash+16, round_keys);
+	    Encrypt(page_hash+24, round_keys);
+	    /*if(!cmp(page_hash,sig)){
+	    	UART0_putchar('F');
+		while(1){
+		    __asm__ __volatile__("");
+		}
+		
+	    }*/
+	    Encrypt(sig,round_keys);
+	    wdt_reset();
+	    for(uint8_t i = 0; i < 32; i++){
+		Decrypt(data + i*8, round_keys);
+	    }
             program_flash(page, data);
             page += SPM_PAGESIZE;
             data_index = 0;
@@ -261,7 +285,6 @@ void boot_firmware(void) {
 
     asm("jmp 0000");  // Perform the jmp to the firmware
 }
-
 /*
  * To program flash, you need to access and program it in pages
  * On the atmega1284p, each page is 128 words, or 256 bytes

@@ -86,7 +86,7 @@ if __name__ == '__main__':
     hash_input_temp = ''
     hash_input = []
     i = 0
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     # for each line with data
     for line in byline_data:
         # read numBytes in line
@@ -94,14 +94,17 @@ if __name__ == '__main__':
         # get data hex values
         data = line[9:9+numBytes*2]
         # encrypt the 16B using simon
-        data1 = data[0:16];
-        data2 = data[16:];
+        data1 = swap_order(data[0:16],wsz=16,gsz=2)
+        data2 = swap_order(data[16:],wsz=16,gsz=2)
         encrypted1 = hex(my_simon.encrypt(int(data1,16)))[2:-1]
         encrypted2 = hex(my_simon.encrypt(int(data2,16)))[2:-1]
         swapped1 = swap_order(encrypted1.zfill(16),wsz = 16, gsz=2)
         swapped2 = swap_order(encrypted2.zfill(16), wsz = 16, gsz = 2)
+        #swapped1 = encrypted1.zfill(16)
+        #swapped2 = encrypted2.zfill(16)
         encryptedData = swapped1 + swapped2
-        #if len(encryptedData) != 32:
+        #import pdb; pdb.set_trace()
+	 #if len(encryptedData) != 32:
             #import pdb; pdb.set_trace()
 	# create new line with encrypted data, convert to hex string
         encryptedline = line[0:9] + encryptedData
@@ -117,20 +120,30 @@ if __name__ == '__main__':
 
         encrypted_byline.append(encryptedline)
 
-    pdb.set_trace()
+    #pdb.set_trace()
 
     # add the last line back
     encrypted_byline.extend(byline[-2:])
     # go back to intel_hex SIO() format for hex_data
     encrypted_hex_data = "\n".join(encrypted_byline)
-
+    import pdb; pdb.set_trace()
     # #HASH for pages
     tags = []
-    # for input_data in hash_input:
-    #     hash_local = sha256(input_data).hexdigest()
-    #     first_half = hex(my_simon.encrypt(int(hash_local[0:32],16)))[2:-1]
-    #     second_half = hex(my_simon.encrypt(int(hash_local[32:],16)))[2:-1]
-    #     tags.append(first_half+second_half)
+    for input_data in hash_input:
+         hash_local = sha256(input_data.decode('hex')).hexdigest().zfill(64)
+         first_q = swap_order(hash_local[0:16],wsz=16,gsz=2)
+         second_q =swap_order(hash_local[16:32],wsz=16,gsz=2)
+         third_q = swap_order(hash_local[32:48],wsz=16,gsz=2)
+         fourth_q = swap_order(hash_local[48:],wsz=16,gsz=2)
+         fq = hex(my_simon.encrypt(int(first_q,16)))[2:-1]
+         sq = hex(my_simon.encrypt(int(second_q,16)))[2:-1]
+         tq = hex(my_simon.encrypt(int(third_q,16)))[2:-1]
+         foq = hex(my_simon.encrypt(int(fourth_q,16)))[2:-1]
+         fs = swap_order(fq,wsz=16,gsz=2)
+         ss = swap_order(sq,wsz=16,gsz=2)
+         ts = swap_order(tq,wsz=16,gsz=2)
+         fos = swap_order(foq,wsz=16,gsz=2)
+         tags.append(fs+ss+ts+fos)
 
     # Sign Result
     # Save as Version-Bytes
