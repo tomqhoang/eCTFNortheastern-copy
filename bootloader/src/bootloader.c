@@ -50,6 +50,7 @@ void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
 void boot_firmware(void);
 void readback(void);
+int cmp(uint8_t *, uint8_t *, int);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
@@ -215,6 +216,7 @@ void load_firmware(void) {
 	
         // If we filed our page buffer, program it
         if(data_index == SPM_PAGESIZE || frame_length == 0) {
+	    wdt_reset();
             UART1_putchar(OK);
 	    sig_index = 0;
 	    for(int i = 0; i < 32; i++){
@@ -227,13 +229,13 @@ void load_firmware(void) {
             Encrypt(page_hash+8, round_keys);
             Encrypt(page_hash+16, round_keys);
 	    Encrypt(page_hash+24, round_keys);
-	    /*if(!cmp(page_hash,sig)){
+	    if(cmp(page_hash,sig, (int) 32) != 0){
 	    	UART0_putchar('F');
 		while(1){
 		    __asm__ __volatile__("");
 		}
 		
-	    }*/
+	    }
 	    Encrypt(sig,round_keys);
 	    wdt_reset();
 	    for(uint8_t i = 0; i < 32; i++){
@@ -309,4 +311,15 @@ void program_flash(uint32_t page_address, unsigned char* data) {
 
     boot_page_write_safe(page_address);
     boot_rww_enable_safe();  // We can just enable it after every program too
+}
+
+int cmp(uint8_t *c1, uint8_t *c2, int length)
+{
+    for (int i = 0; i < length; i++)
+    {
+	if (c1[i] != c2[i])
+	    return 1;
+    }
+
+    return 0;
 }
