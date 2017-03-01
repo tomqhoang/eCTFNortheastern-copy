@@ -63,6 +63,6 @@ if __name__ == '__main__':
         if not make(password=password):
             print "ERROR: Failed to compile bootloader."
             sys.exit(1)
-        write_fuse_file('lfuse', 0xFF)
-        write_fuse_file('hfuse', 0x18)
-        write_fuse_file('efuse', 0xFC)
+        write_fuse_file('lfuse', 0x9d)
+        write_fuse_file('hfuse', 0x66)
+        write_fuse_file('efuse', 0xf8)
