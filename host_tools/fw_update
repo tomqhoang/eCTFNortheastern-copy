@@ -44,7 +44,7 @@ class Firmware(object):
             data = fw_file.read()
             data = zlib.decompress(data)
             data = json.loads(data)
-            self.version = data['version']
+      	    #self.version = data['version']
             self.size = data['firmware_size']
             self.hex_data = StringIO(data['hex_data'])
 
@@ -95,8 +95,8 @@ if __name__ == '__main__':
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     print('Opening serial port...')
-    ser = serial.Serial(args.port, baudrate=115200, timeout=2)
-
+#    ser = serial.Serial(args.port, baudrate=115200, timeout=2)
+    import pdb; pdb.set_trace()
     # Open our firmware file.
     print('Opening firmware file...')
     firmware = Firmware(args.firmware)

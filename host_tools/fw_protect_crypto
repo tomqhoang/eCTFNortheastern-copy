@@ -18,6 +18,26 @@ from simon import SimonCipher
 def swap_order(d, wsz=4, gsz=2 ):
         return "".join(["".join([m[i:i+gsz] for i in range(wsz-gsz,-gsz,-gsz)]) for m in [d[i:i+wsz] for i in range(0,len(d),wsz)]])
 
+def complement(input_int):
+    input_str = (bin(input_int)[2:]).zfill(8)
+    result = ''
+    for i in input_str:
+        if i == '1':
+            result = result + '0'
+        else:
+            result = result + '1'
+    return int(result, 2) + 1
+
+def compute_checksum(intelhex_str):
+	try:
+            checksum_hex = bytearray(intelhex_str.decode('hex'))
+	except:
+	    import pdb; pdb.set_trace()
+        checksum_val = sum(checksum_hex) & 0xFF
+	two_complement  = complement(checksum_val)
+	checksum_bytes = hex(two_complement)
+	checksum_str = checksum_bytes[2:].zfill(2)[-2:]
+	return checksum_str
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
@@ -66,23 +86,28 @@ if __name__ == '__main__':
     hash_input_temp = ''
     hash_input = []
     i = 0
+    import pdb; pdb.set_trace()
     # for each line with data
     for line in byline_data:
         # read numBytes in line
         numBytes = int(line[1:3],16);
         # get data hex values
         data = line[9:9+numBytes*2]
-        
         # encrypt the 16B using simon
         data1 = data[0:16];
         data2 = data[16:];
         encrypted1 = hex(my_simon.encrypt(int(data1,16)))[2:-1]
         encrypted2 = hex(my_simon.encrypt(int(data2,16)))[2:-1]
-        swapped1 = swap_order(encrypted1,wsz = 16, gsz=2)
-        swapped2 = swap_order(encrypted2, wsz = 16, gsz = 2)
-        encryptedData = swapped1 + swapped2;
-        # create new line with encrypted data, convert to hex string
-        encryptedline = line[0:9] + encryptedData + line[-2:]
+        swapped1 = swap_order(encrypted1.zfill(16),wsz = 16, gsz=2)
+        swapped2 = swap_order(encrypted2.zfill(16), wsz = 16, gsz = 2)
+        encryptedData = swapped1 + swapped2
+        #if len(encryptedData) != 32:
+            #import pdb; pdb.set_trace()
+	# create new line with encrypted data, convert to hex string
+        encryptedline = line[0:9] + encryptedData
+        checksum_str = compute_checksum(encryptedline[1:])
+	if numBytes == 16:
+            encryptedline = encryptedline + checksum_str
         if(i == 16):
             i = 0;
             hash_input.append((hash_input_temp))
@@ -125,6 +150,7 @@ if __name__ == '__main__':
         'firmware_size' : firmware_size,
         'version_bytes'  : version_bytes,
         'version_sig' : version_sig,
+	'version' : version,
         'hex_data' : encrypted_hex_data,
         'tags' : tags
     }
