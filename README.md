@@ -1,4 +1,4 @@
-# Northeastern is a trade school's Embedded CTF Code
+# Northeastern University ECE Department's Embedded CTF Code
 
 This repository contains Northeastern University ECE's reference system for MITRE's 2017 
 [Embedded System CTF](http://mitrecyberacademy.org/competitions/embedded/).
@@ -55,6 +55,28 @@ to connect the 6-pin ISP header on the AVR Dragon to the ISP10 header on the
 protostack board.  The notch on the connecting cable should face towards pin-1
 on the Dragon. Do not use the 10-pin connector on the Dragon -- this is for JTAG
 and is not needed to get up and running.
+
+# High Level Design
+Overall, we followed the format provided by the MITRE insecure example. We used the same 
+files for our host tools and bootloader, with the exception of a loading script called 
+`loadboot`, which is useful for quickly writing code to the device. 
+
+1. `Encryption and Decryption:`
+   In order to encrypt and decrypt our data, we made use of Simon, a light weight 
+   block cipher designed for hardware applications. It was publically released by 
+   the NSA in 2013. Click [here](https://en.wikipedia.org/wiki/Simon_(cipher)) for more information about Simon.
+   On the host_tools end, we used [this](https://github.com/inmcm/Simon_Speck_Ciphers/tree/master/Python) Python 
+   implementation, and on the bootloader end, we used [this](https://www.cryptolux.org/index.php/FELICS_Block_Ciphers_Detailed_Results#AVR) 
+   C implementation from FELICS.
+
+2. `Integrity:`
+   For authentication, we used [SHA256](https://en.wikipedia.org/wiki/SHA-2), the current 
+   standard used by the NSA. It is used to authenticate the encrypted data by preventing a
+   malicious user from editing the encrypted data being sent to the microcontroller. In 
+   addition, since the hash is encrypted with a secret key, it prevents a malicious user
+   from creating their own hash that will be authenticated by the device. 
+   On the host_tools end, we used the [hashlib](https://docs.python.org/2/library/hashlib.html) Python mode, 
+   and on the bootloader, we used the [AVR Crypto-lib](https://github.com/MattiasBuelens/avr-crypto-lib) repository. 
 
 # Provided Files
 1. `Vagrantfile`
@@ -186,4 +208,4 @@ avrdude: Version 6.0.1, compiled on Dec 16 2013 at 17:26:24
 Once you run `make debug` you should get a window that looks like this:
 ![alt text](gdb_example.png)
 
-
+We would like to thank MITRE for making this competition happen, and for providing a lot of the framework for this README. We appreciate having this competition; it was a lot of fun for the team and we learned a lot. 
