@@ -19,16 +19,18 @@ just a zero
 """
 
 import argparse
+import binascii
 import json
 import serial
 import struct
 import sys
-import zlib
 import time
-import binascii
+import zlib
+
 from cStringIO import StringIO
 from intelhex import IntelHex
 
+# Define the 'OK' response message as 0x00
 RESP_OK = b'\x00'
 RESP_ERROR = b'\x01'
 
@@ -165,7 +167,7 @@ if __name__ == '__main__':
     print("Done writing firmware.")
 
     # Send a zero length payload to tell the bootlader to finish writing
-    # it's page.
+    # its page.
     ser.write(struct.pack('>H', 0x0000))
 
 def response(resp):
