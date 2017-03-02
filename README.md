@@ -61,7 +61,7 @@ Overall, we followed the format provided by the MITRE insecure example. We used 
 files for our host tools and bootloader, with the exception of a loading script called 
 `loadboot`, which is useful for quickly writing code to the device. 
 
-1. `Encryption and Decryption:`
+1. `Encryption and Decryption`
    In order to encrypt and decrypt our data, we made use of Simon, a light weight 
    block cipher designed for hardware applications. It was publically released by 
    the NSA in 2013. Click [here](https://en.wikipedia.org/wiki/Simon_(cipher)) for more information about Simon.
@@ -69,7 +69,7 @@ files for our host tools and bootloader, with the exception of a loading script 
    implementation, and on the bootloader end, we used [this](https://www.cryptolux.org/index.php/FELICS_Block_Ciphers_Detailed_Results#AVR) 
    C implementation from FELICS.
 
-2. `Integrity:`
+2. `Integrity`
    For authentication, we used [SHA256](https://en.wikipedia.org/wiki/SHA-2), the current 
    standard used by the NSA. It is used to authenticate the encrypted data by preventing a
    malicious user from editing the encrypted data being sent to the microcontroller. In 
