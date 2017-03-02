@@ -154,9 +154,19 @@ if __name__ == '__main__':
     # HASH
     version_hash = sha256(version_bytes).hexdigest()
     # SIMON in 16B chunks
-    version_sig = hex(my_simon.encrypt(int(version_hash[0:32],16)))[2:-1]
-    # Combine
-    version_sig = version_sig + hex(my_simon.encrypt(int(version_hash[32:],16)))[2:-1]
+    first_q = swap_order(version_hash[0:16],wsz=16,gsz=2)
+    second_q =swap_order(version_hash[16:32],wsz=16,gsz=2)
+    third_q = swap_order(version_hash[32:48],wsz=16,gsz=2)
+    fourth_q = swap_order(version_hash[48:],wsz=16,gsz=2)
+    fq = hex(my_simon.encrypt(int(first_q,16)))[2:-1]
+    sq = hex(my_simon.encrypt(int(second_q,16)))[2:-1]
+    tq = hex(my_simon.encrypt(int(third_q,16)))[2:-1]
+    foq = hex(my_simon.encrypt(int(fourth_q,16)))[2:-1]
+    fs = swap_order(fq,wsz=16,gsz=2)
+    ss = swap_order(sq,wsz=16,gsz=2)
+    ts = swap_order(tq,wsz=16,gsz=2)
+    fos = swap_order(foq,wsz=16,gsz=2)
+    version_sig = fs+ss+ts+fos
    
     # Encode the data as json and write to outfile.
     data = {
