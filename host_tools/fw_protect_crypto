@@ -8,6 +8,7 @@ import struct
 import json
 import zlib
 import pdb
+import binascii
 from hashlib import sha256
 from cStringIO import StringIO
 from intelhex import IntelHex
@@ -15,6 +16,7 @@ import random, os, struct
 #from Crypto.Cipher import AES
 from simon import SimonCipher
 
+# Swaps bytes in a list, see StackOverflow
 def swap_order(d, wsz=4, gsz=2 ):
         return "".join(["".join([m[i:i+gsz] for i in range(wsz-gsz,-gsz,-gsz)]) for m in [d[i:i+wsz] for i in range(0,len(d),wsz)]])
 
@@ -69,9 +71,15 @@ if __name__ == '__main__':
 
     # Hex data is in IntelHex format, see wikipedia article on formatting
 
+    # Parse the key from secret_configure_output.txt
+    f = open('secret_configure_output.txt', 'r') 
+    secret_config_file_txt = f.read()
+    secret_config_json = json.loads(secret_config_file_txt)
+    key_string = secret_config_json['SIMONKEY']
+    key = int(key_string, 16)
 
     #create simon cipher, key goes in here in 0xhex, or int('hex-string-here',16)
-    my_simon = SimonCipher(0,key_size=128, block_size=64)
+    my_simon = SimonCipher(key,key_size=128, block_size=64)
 
     # split each line
     byline = hex_data.splitlines()
