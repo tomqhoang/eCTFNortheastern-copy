@@ -174,6 +174,28 @@ void load_firmware(void) {
     rcv = UART1_getchar();
     size |= (uint16_t)rcv;
 
+    // read version signature
+    for(int i = 0; i < 32; i++){
+	wdt_reset();
+	sig[sig_index] = UART1_getchar();
+	sig_index++;
+    }
+
+    // compare encrypted hash with received
+    sha256(page_hash, (uint8_t *) version, (uint32_t) 16);
+    Encrypt(page_hash, round_keys);
+    Encrypt(page_hash+8, round_keys);
+    Encrypt(page_hash+16, round_keys);
+    Encrypt(page_hash+24, round_keys);
+    UART1_putchar(OK);
+    if(cmp(page_hash,sig, (int) 32) != 0){
+	UART0_putchar('F');
+	while(1){
+	    __asm__ __volatile__("");
+	}
+	
+    }
+
     // Compare to old version and abort if older (note special case for version 0)
     if (version != 0 && version < eeprom_read_word(&fw_version)) {
         UART1_putchar(ERROR);  // Reject the metadata
@@ -212,7 +234,7 @@ void load_firmware(void) {
             data[data_index] = UART1_getchar();
             data_index += 1;
         }
-	
+    	
 	
         // If we filed our page buffer, program it
         if(data_index == SPM_PAGESIZE || frame_length == 0) {
