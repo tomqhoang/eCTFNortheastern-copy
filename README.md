@@ -3,51 +3,6 @@
 This repository contains Northeastern University ECE's reference system for MITRE's 2017 
 [Embedded System CTF](http://mitrecyberacademy.org/competitions/embedded/). To centralize information between our repository and MITRE's, we consolidated setup details to this document.
 
-# Getting Started
-Before you can use the bootloader, you'll first need to get up and running
-with our common development environment. All Northeastern development and testing was 
-on a vagrant provisioned virtual machine.
-
-## Prerequisites
-Note: if you already have one of these dependencies installed you should not
-need to install it again.
-
-1. Download and install VirtualBox here:
-   [https://www.virtualbox.org/wiki/Downloads] using the provided instructions.
-2. Download and install VirtualBox Extensions (for USB support) from the same
-   link: [https://www.virtualbox.org/wiki/Downloads] using the provided
-   instructions.
-3. Download and install Vagrant here:
-   [https://www.vagrantup.com/downloads.html] using the provided instructions.
-4. Download and install git here:
-   [https://git-scm.com/download] using the provided instructions.
-
-## Getting the VM Up and Running
-Once you have downloaded the build environment, change into its direcotry in 
-your shell and follow these steps to start up your VM:
-
-1. Copy `Vagrantfile.local.example` to `Vagrantfile.local`.
-2. Open `Vagrantfile.local` and ensure that the configurations make sense for
-   your system configuration.
-3. Run `vagrant up` in the shell/command line of your choice to download the VM
-   image, provision your VM, and start it up.
-4. Run `vagrant ssh` to log in to the VM.
-
-If any errors occur during steps 3 or 4, try to resolve them by modifying
-`Vagrantfile.local` rather than `Vagrantfile`.
-
-The AVR Dragon and USB to RS232 converters should be automatically handed over
-to the VM when it is running, but if they are not you should be able to attach
-them through the virtualbox GUI. If you run into problems with USB that you
-cannot resolve on your own, please open an issue on this repo. 
-
-## Connecting the Boards
-To connect the AVR Dragon to the Protostack board, use the included ribbon cable
-to connect the 6-pin ISP header on the AVR Dragon to the ISP10 header on the
-protostack board.  The notch on the connecting cable should face towards pin-1
-on the Dragon. Do not use the 10-pin connector on the Dragon -- this is for JTAG
-and is not needed to get up and running.
-
 # High Level Design
 Overall, we followed the format provided by the MITRE insecure example. We used the same 
 files for our host tools and bootloader, with the exception of a loading script called 
@@ -70,6 +25,52 @@ files for our host tools and bootloader, with the exception of a loading script 
    On the host_tools end, we used the [hashlib](https://docs.python.org/2/library/hashlib.html) Python mode, 
    and on the bootloader, we used the [AVR Crypto-lib](https://github.com/MattiasBuelens/avr-crypto-lib) repository. 
 
+
+# Getting Started
+Before you can use the bootloader, you'll first need to get up and running
+with our common development environment. All Northeastern development and testing was 
+on a vagrant provisioned virtual machine.
+
+## (MITRE COPIED) Prerequisites 
+Note: if you already have one of these dependencies installed, you should not
+need to install it again.
+
+1. Download and install VirtualBox here:
+   [https://www.virtualbox.org/wiki/Downloads] using the provided instructions.
+2. Download and install VirtualBox Extensions (for USB support) from the same
+   link: [https://www.virtualbox.org/wiki/Downloads] using the provided
+   instructions.
+3. Download and install Vagrant here:
+   [https://www.vagrantup.com/downloads.html] using the provided instructions.
+4. Download and install git here:
+   [https://git-scm.com/download] using the provided instructions.
+
+## Getting the VM Up and Running
+Once you have downloaded the build environment, change into its direcotry in 
+your shell and follow these steps to start up your VM:
+
+1. Copy `Vagrantfile.team` to `Vagrantfile.local`.
+2. Open `Vagrantfile.local` and ensure that the configurations make sense for
+   your system configuration.
+3. Run `vagrant up` in the shell/command line of your choice to download the VM
+   image, provision your VM, and start it up.
+4. Run `vagrant ssh` to log in to the VM.
+
+If any errors occur during steps 3 or 4, try to resolve them by modifying
+`Vagrantfile.local` rather than `Vagrantfile`.
+
+The AVR Dragon and USB to RS232 converters should be automatically handed over
+to the VM when it is running, but if they are not you should be able to attach
+them through the virtualbox GUI. If you run into problems with USB that you
+cannot resolve on your own, please open an issue on this repo. 
+
+## (MITRE COPIED) Connecting the Boards
+To connect the AVR Dragon to the Protostack board, use the included ribbon cable
+to connect the 6-pin ISP header on the AVR Dragon to the ISP10 header on the
+protostack board.  The notch on the connecting cable should face towards pin-1
+on the Dragon. Do not use the 10-pin connector on the Dragon -- this is for JTAG
+and is not needed to get up and running.
+
 # Provided Files
 1. `Vagrantfile`
 The base configurations for vagrant. You are not allowed to modify this file.
@@ -90,7 +91,7 @@ host-tool-specific instructions and help.
 The host tools are intended to be run from our VM. They communicate with the
 bootloader over UART1 on the AVR.
 
-## How to Run the Tools
+## (MITRE-COPIED) How to Run the Tools
 All of the example host tools are written in Python, but do not have .py file
 extensions. In Linux (e.g., on your vagrant VM) you should be able to run them
 as a regular program/script (i.e., `./bl_build`). If that isn't working you may
@@ -100,14 +101,14 @@ need to run them an argument to the python interpreter (i.e.,
 All tools that take arguments should have a help flag (`-h`) that will provide
 descriptions.
 
-## Checking Code Size 
+## (MITRE-COPIED) Checking Code Size 
 To check the size of your bootloader code you can run:
 `avr-size flash.hex`
 
 Also, the file `bootloader.map` is now created when the firmware is created. It 
 provides a description on where functions are located in program memory. 
 
-## Programming the Board
+## (MITRE-COPIED) Programming the Board
 The following command should program your board with the output from your
 `bl_build` tool:
 
@@ -127,7 +128,7 @@ The AVR dragon may occasionally end up in a state where it no longer responds to
 avrdude. If this happens, the problem can be resolved by disconnecting and
 reconnecting the dragon's USB cable.
 
-## Makefile, Flashing and Debugging
+## (MITRE-COPIED) Makefile, Flashing and Debugging
 
 The Makefile contains targets for both flashing and debugging the AVR as well as using the JTAG 
 functionality of the Dragon. There is a number of caveats to getting this to
