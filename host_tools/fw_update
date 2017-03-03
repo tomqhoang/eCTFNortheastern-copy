@@ -46,7 +46,7 @@ class Firmware(object):
             data = fw_file.read()
             data = zlib.decompress(data)
             data = json.loads(data)
-      	    self.version = data['version']
+            self.version = data['version']
             self.version_hash = data['version_hash']
             self.size = data['firmware_size']
             self.size = 3600
@@ -162,7 +162,7 @@ if __name__ == '__main__':
             print("Resp: {}".format(ord(resp)))
         if frame_number == 15:
             try:
-                stuff = struct.pack('>32s',binascii.unhexlify((firmware.tags[page_num])))
+                stuff = struct.pack('>32s', binascii.unhexlify((firmware.tags[page_num])))
             except:
                 import pdb; pdb.set_trace()
             ser.write(stuff)
