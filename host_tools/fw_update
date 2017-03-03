@@ -50,6 +50,7 @@ class Firmware(object):
             self.size = 3600
             self.hex_data = StringIO(data['hex_data'])
             self.tags = data['tags']
+            import pdb; pdb.set_trace()
         self.reader = IntelHex(self.hex_data)
 
     def frames(self):
@@ -107,6 +108,8 @@ if __name__ == '__main__':
     firmware = Firmware(args.firmware)
     print('Version: {}'.format(firmware.version))
     print('Size: {} bytes (not including release message)'.format(firmware.size))
+
+    import pdb; pdb.set_trace()
 
     print firmware.version_hash
     print('Waiting for bootloader to enter update mode...')
@@ -174,4 +177,8 @@ if __name__ == '__main__':
     # Send a zero length payload to tell the bootlader to finish writing
     # it's page.
     ser.write(struct.pack('>H', 0x0000))
+    resp = ser.read()
+    time.sleep(0.1)
 
+    if resp == 'D':
+        print 'Received confirmation'
