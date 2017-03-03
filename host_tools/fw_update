@@ -130,6 +130,7 @@ if __name__ == '__main__':
     resp = ser.read()
     time.sleep(0.1)
     response(resp)
+    print 'Received OK'
 
     # send version hash
     version_hash = struct.pack('>32s',binascii.unhexlify((firmware.version_hash)))

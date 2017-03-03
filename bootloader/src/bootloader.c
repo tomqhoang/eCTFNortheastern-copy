@@ -51,17 +51,19 @@ void load_firmware(void);
 void boot_firmware(void);
 void readback(void);
 int cmp(uint8_t *, uint8_t *, int);
+int store_password(void);
 
 uint16_t fw_size EEMEM = 0;
 uint16_t fw_version EEMEM = 0;
+uint8_t key_stored EEMEM = 0;
 
 int main(void) {
     UART1_init();  // Init UART1 (virtual com port)
     UART0_init();  // Init UART0
     wdt_reset();
 
-    DDRB &= ~((1 << PB2) | (1 << PB3));  // Configure Port B Pins 2 and 3 as inputs
-    PORTB |= (1 << PB2) | (1 << PB3);  // Enable pullups - give port time to settle
+    DDRB &= ~((1 << PB2) | (1 << PB3) | (1 << PB4));  // Configure Port B Pins 2 and 3 as inputs
+    PORTB |= (1 << PB2) | (1 << PB3) | (1 << PB4);  // Enable pullups - give port time to settle
 
     // If jumper is present on pin 2, load new firmware
     if (!(PINB & (1 << PB2))) {
@@ -70,6 +72,10 @@ int main(void) {
     else if (!(PINB & (1 << PB3))) {
         UART1_putchar('R');
         readback();
+    }
+    else if (!(PINB & (1 << PB4)) && eeprom_read_byte(&key_stored) == 0)
+    {
+	eeprom_update_byte(&key_stored, store_password());
     }
     else {
         UART1_putchar('B');
@@ -130,6 +136,80 @@ void readback(void) {
     while(1) __asm__ __volatile__("");  // Wait for watchdog timer to reset.
 }
 
+/* Store hashed password and key in first page of flash */
+int store_password(void)
+{
+    uint8_t i;
+    uint8_t index;
+    uint8_t rcv = 80;
+    uint8_t secret_buffer[80] = {1};  
+    uint8_t sha_buffer[SPM_PAGESIZE] = {0};
+
+    wdt_enable(WDTO_2S);  // Start the Watchdog Timer
+
+    UART1_putchar('K');
+
+    index = 0;
+    for (i = 0; i < SPM_PAGESIZE; i++)
+    {
+	wdt_reset();
+	sha_buffer[index] = 0;
+	index++;
+    }
+
+    while(!UART1_data_available()) {  // Wait for data
+        wdt_reset();
+    }
+
+    index = 0;
+    // get data in form (password | key | hash)
+    for (i = 0; i < rcv; i++)
+    {
+	wdt_reset();
+	secret_buffer[index] = UART1_getchar();
+	index++;
+    }
+
+    /*
+    // hash password and key
+    sha256(sha_buffer, secret_buffer, (uint32_t) 384);
+
+    index = 0;
+    for (i = 0; i < 32; i++)
+    {
+	wdt_reset();
+	UART0_putchar(secret_buffer[index]);
+	index++;
+    }
+
+    // check hash with received hash
+    if (cmp(sha_buffer, secret_buffer + 48, (int) 32) != 0)
+    {
+	wdt_reset();
+	UART0_putchar('E');
+	while (1)
+	{
+	    __asm__ __volatile__("");
+	}
+    }
+    */
+
+    // hash password and store to buffer
+    sha256(sha_buffer, secret_buffer, (uint32_t) 256);
+
+    // store key after hashed password
+    for (i = 0; i < 16; i++)
+    {
+	wdt_reset();
+        sha_buffer[i + 32] = secret_buffer[i + 32];
+    }
+
+    // store as hashedpassword | key
+    program_flash((uint32_t) 0xEF00, sha_buffer);
+
+    return 1;
+}
+
 /*
  * Load the firmware into flash.
  */
@@ -150,6 +230,9 @@ void load_firmware(void) {
     uint32_t hash_length = 0;
     uint8_t max_segments = 0;
     uint16_t segment_index = 0;
+    
+    // copy key
+    // memcpy_PF(key, 0xEF20, 16);
     RunEncryptionKeySchedule(key, round_keys);
 
     wdt_enable(WDTO_2S);  // Start the Watchdog Timer
@@ -372,6 +455,7 @@ void program_flash(uint32_t page_address, unsigned char* data) {
     boot_page_write_safe(page_address);
     boot_rww_enable_safe();  // We can just enable it after every program too
 }
+
 
 int cmp(uint8_t *c1, uint8_t *c2, int length)
 {
