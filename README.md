@@ -1,7 +1,7 @@
 # Northeastern University ECE Department's Embedded CTF Code
 
 This repository contains Northeastern University ECE's reference system for MITRE's 2017 
-[Embedded System CTF](http://mitrecyberacademy.org/competitions/embedded/). This i
+[Embedded System CTF](http://mitrecyberacademy.org/competitions/embedded/). To centralize information between our repository and MITRE's, we consolidated setup details to this document.
 
 # Getting Started
 Before you can use the bootloader, you'll first need to get up and running
