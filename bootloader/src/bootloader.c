@@ -1,4 +1,4 @@
-*
+/*
  * bootloader.c
  *
  * If Port B Pin 2 (PB2 on the protostack board) is pulled to ground the 
@@ -27,20 +27,22 @@
  * frame is received after 2 seconds, the bootloader will time out and reset.
  *
  */
+
+#include <avr/boot.h>
 #include <avr/io.h>
+#include <avr/interrupt.h>
+#include <avr/pgmspace.h>
+#include <avr/wdt.h>
+#include <sha256.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <util/delay.h>
-#include "uart.h"
-#include <avr/boot.h>
-#include <avr/wdt.h>
-#include <avr/interrupt.h>
-#include <avr/pgmspace.h>
-#include "encrypt.h"
+
 #include "decrypt.h"
+#include "encrypt.h"
 #include "encryption_key_schedule.h"
-#include <sha256.h>
+#include "uart.h"
 
 #define OK ((unsigned char) 0x00)
 #define ERROR ((unsigned char) 0x01)
@@ -84,6 +86,7 @@ int main(void) {
     }
 }
 
+// TODO: remove this function
 void test_encryption(void)
 {
 	// SIMON
@@ -110,14 +113,14 @@ void test_encryption(void)
 void readback(void) {
     wdt_enable(WDTO_2S);  // Start the Watchdog Timer
 
-    // Read in start address (4 bytes)
+    // Read in start address 1 byte at a time (4 bytes total)    
     uint32_t start_addr = ((uint32_t)UART1_getchar()) << 24;
     start_addr |= ((uint32_t)UART1_getchar()) << 16;
     start_addr |= ((uint32_t)UART1_getchar()) << 8;
     start_addr |= ((uint32_t)UART1_getchar());
     wdt_reset();
 
-    // Read in size (4 bytes)
+    // Read in size 1 byte at a time (4 bytes total)
     uint32_t size = ((uint32_t)UART1_getchar()) << 24;
     size |= ((uint32_t)UART1_getchar()) << 16;
     size |= ((uint32_t)UART1_getchar()) << 8;
@@ -141,7 +144,7 @@ int store_password(void)
 {
     uint8_t i;
     uint8_t index;
-    uint8_t rcv = 80;
+    uint8_t rcv = 80; // 32 + 16 + 32 bits for password, key, and hash
     uint8_t secret_buffer[80] = {1};  
     uint8_t sha_buffer[SPM_PAGESIZE] = {0};
 
@@ -150,8 +153,7 @@ int store_password(void)
     UART1_putchar('K');
 
     index = 0;
-    for (i = 0; i < SPM_PAGESIZE; i++)
-    {
+    while(index < SPM_PAGESIZE) {
 	wdt_reset();
 	sha_buffer[index] = 0;
 	index++;
@@ -163,8 +165,7 @@ int store_password(void)
 
     index = 0;
     // get data in form (password | key | hash)
-    for (i = 0; i < rcv; i++)
-    {
+    while(index < rcv) {
 	wdt_reset();
 	secret_buffer[index] = UART1_getchar();
 	index++;
@@ -218,13 +219,16 @@ void load_firmware(void) {
     int frame_length_R = 0;
     unsigned char rcv = 0;
     unsigned char data[SPM_PAGESIZE];  // SPM_PAGESIZE is the size of a page
+    unsigned char temp_data[SPM_PAGESIZE];
     unsigned int data_index = 0;
     unsigned int page = 0;
     uint16_t version = 0;
+    uint16_t old_version = 256; // set to max to ensure accuracy
     uint16_t size = 0;
     uint8_t key[16] = {0};
     uint8_t round_keys[176] = {0};
     uint8_t sig[32] = {0};
+    uint8_t temp_page_hash[32] = {0};
     uint8_t page_hash[32] = {0};
     unsigned int sig_index = 0;
     uint32_t hash_length = 0;
@@ -278,6 +282,7 @@ void load_firmware(void) {
     }
 
     // compare encrypted hash with received
+    temp_data = data;
     sha256(page_hash, (uint8_t *) data, (uint32_t) 144);
     if(cmp(page_hash, sig, (int) 32) != 0){
 	UART0_putchar('F');
@@ -286,6 +291,15 @@ void load_firmware(void) {
 	}
 	
     }
+    if(cmp(temp_data, data, SPM_PAGESIZE) == 0){
+	UART0_PUTCHAR('F');
+	while(1){
+	    __asm__ __volatile__("");
+	}
+    }
+
+    // temporarily store the old version here
+    old_version = eeprom_read_word(&fw_version);
 
     // Compare to old version and abort if older (note special case for version 0)
     if (version != 0 && version < eeprom_read_word(&fw_version)) {
@@ -298,6 +312,15 @@ void load_firmware(void) {
     else if (version != 0) {  // Update version number in EEPROM
         wdt_reset();
         eeprom_update_word(&fw_version, version);
+    }
+
+    // If the new version number is less than the old version number, something is wrong.
+    if(old_version > version){
+        UART1_putchar(ERROR);
+
+	while(1){
+	    __asm__ __volatile__("");
+	}
     }
 
     // Write new firmware size to EEPROM
@@ -354,6 +377,7 @@ void load_firmware(void) {
 		hash_length = 2048;
 	    }
 
+	    page_hash_temp = page_hash;
 	    sha256(page_hash, data, hash_length);
             wdt_reset();
 	    Encrypt(page_hash,round_keys);
@@ -364,9 +388,15 @@ void load_firmware(void) {
 	    	UART0_putchar('F');
 		while(1){
 		    __asm__ __volatile__("");
-		}
-		
+		}		
 	    }
+	    if(cmp(page_hash_temp, page_hash, (int)32) == 0){
+		UART0_putchar('F');
+		while(1){
+	            __asm__ __volatile__("");
+		}
+	    }
+
 	    wdt_reset();
 	    // Start at end of data in current page and fill zeros
 	    //
@@ -443,6 +473,7 @@ void boot_firmware(void) {
  *
  * You must fill the buffer one word at a time
  */
+// TODO: make sure this for loop works the way it is
 void program_flash(uint32_t page_address, unsigned char* data) {
     int i = 0;
     boot_page_erase_safe(page_address);
@@ -457,7 +488,9 @@ void program_flash(uint32_t page_address, unsigned char* data) {
     boot_rww_enable_safe();  // We can just enable it after every program too
 }
 
-
+/*
+ * This function takes two arrays and their length and compares them for equality.
+ */
 int cmp(uint8_t *c1, uint8_t *c2, int length)
 {
     for (int i = 0; i < length; i++)
