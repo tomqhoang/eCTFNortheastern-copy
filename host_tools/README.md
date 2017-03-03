@@ -21,9 +21,9 @@ the device.
 
 ## Build tool: bl_build
 The main purpose of the build tool is to create the bootloader. It does so by creating hex files
-that are written into the bootloader's memory space. This tool uses essentially all of the MITRE content, except for minor changes to .hex file handling which should not affect operation.  Also, the tool sets lock/fuse bits to more secure values. In addition, the build tool also creates `secret_build_output.txt` (which is in a JSON format). This file also stores the secret password (32 bytes) created by the tool which is used for readback permission.
+that are written into the bootloader's memory space. This tool uses essentially all of the MITRE content, except for minor changes to .hex file handling which should not affect operation.  Also, the tool sets lock/fuse bits to more secure values. See the [ATMEL datasheet](http://www.atmel.com/Images/Atmel-42719-ATmega1284P_Datasheet.pdf) for a good table that describes the usage of each bit. at In addition, the build tool also creates `secret_build_output.txt` (which is in a JSON format). This file also stores the secret password (32 bytes) created by the tool which is used for readback permission.
 Optional:
-* --clean (runs Make clean in bootloader dir)
+--clean (runs Make clean in bootloader)
 
 ## Configure tool: bl_configure
 bl_configure generates the secret symmetric key (128-bits) used for SIMON encryption/decryption. It then provisions the bootloader board with this key and the password (which is done by consuming the "secret_build_output.txt), which it also integrity checks with hashing. Finally, the tool stores both of these secret values into a new text file called "secret_configure_output.txt" (also a JSON file). 
