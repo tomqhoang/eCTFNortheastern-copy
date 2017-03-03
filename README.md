@@ -13,17 +13,21 @@ files for our host tools and bootloader, with the exception of a loading script 
    block cipher designed for hardware applications. It was publically released by 
    the NSA in 2013. Click [here](https://en.wikipedia.org/wiki/Simon_(cipher)) for more information about Simon.
    On the host_tools end, we used [this](https://github.com/inmcm/Simon_Speck_Ciphers/tree/master/Python) Python 
-   implementation, and on the bootloader end, we used [this](https://www.cryptolux.org/index.php/FELICS_Block_Ciphers_Detailed_Results#AVR) 
+   implementation, and on the bootloader end, we used [this](https://www.cryptolux.org/index.php/FELICS_Block_Ciphers_Detailed_Results#AVR)
    C implementation from FELICS.
+   * Used in the host tools (fw_protect and readback) and the bootloader functions (load_firmware and readback)
+   * Compatibility between the python variant and AVR C Simon is *non-trivial*. This requires understanding of how data is represented and conversion betweend data types between the Python and C side. Please read the source code of fw_bundle and load_firmware (in
+   bootloader.c) for the complexity involved with this porting implementation through the processing of encrypted firmware frames.
 
 2. `Integrity`
    For authentication, we used [SHA256](https://en.wikipedia.org/wiki/SHA-2), the current 
-   standard used by the NSA. It is used to authenticate the encrypted data by preventing a
+   standard used by the NSA. It is used to integrity-check the encrypted data by preventing a
    malicious user from editing the encrypted data being sent to the microcontroller. In 
-   addition, since the hash is encrypted with a secret key, it prevents a malicious user
+   addition, since the hash can be encrypted with a secret key, it prevents a malicious user
    from creating their own hash that will be authenticated by the device. 
    On the host_tools end, we used the [hashlib](https://docs.python.org/2/library/hashlib.html) Python mode, 
    and on the bootloader, we used the [AVR Crypto-lib](https://github.com/MattiasBuelens/avr-crypto-lib) repository. 
+   * Used in fw_protect and readback host tools and the bootloader functions (load firmware and readback)
 
 
 # Getting Started
