@@ -7,6 +7,7 @@ A frame consists of four sections:
 1. Thirty two bytes for the password.
 2. Four bytes for the start address.
 3. Four bytes for the number of bytes to read.
+4. Thirty two bytes for SHA256 representation.
 
 [ 0x32 ]  [ 0x04 ]    [ 0x04 ]   [0x32]
 -------------------------------------------------
@@ -29,7 +30,48 @@ RESP_ERROR = b'\x01'
 def swap_order(d, wsz=4, gsz=2 ):
         return "".join(["".join([m[i:i+gsz] for i in range(wsz-gsz,-gsz,-gsz)]) for m in [d[i:i+wsz] for i in range(0,len(d),wsz)]])
 
+def encrypt(value, simon):
+    """
+    This is a function that encrypts a value with len(value) 0 to 16
+    to a encrypted binary data
+    Param
+    ---------
+    value : int or string
+        value to encrypt
+    simon : SimonCipher
+        Cipher used to encrypt data
+    Returns
+    ----------
+    binary
+        Returns encrypted binary data representation of value
+    """
+    # Encrypt and create the frames to pack
+    value = str(value)
+    if len(value) > 16 and len(value) < 0:
+        print "Not a valid value lenght"
+        sys.exit(1)
+    print("original val: "+ value.zfill(16))
+    valueSwapped = swap_order(value.zfill(16),wsz=16,gsz=2)
+    print("swapped val: "+ valueSwapped)
+    valueEncrypted = hex(simon.encrypt(int(valueSwapped,16)))[2:-1]  # Encrypt the start address
+    print("valueDecrypt : "+ valueDecrypted)
+    valueFinal = swap_order(valueEncrypted.zfill(16),wsz=16,gsz=2)
+    print("valueFinal : "+ valueFinal)
+    return binascii.unhexlify(valueFinal)
+
 def construct_request(start_address, num_bytes):
+    """
+    function that constructs request package
+    Param
+    -------
+    start_address: int
+        the start of the memory address
+    num_bytes: int
+        the number of bytes to return
+    Returns:
+    package
+        ready to send package
+    """
     # Read in secret password from file
     SECRET_PASSWORD = ''
     SIMON_KEY = ''
@@ -44,42 +86,30 @@ def construct_request(start_address, num_bytes):
 
     # Encrypt and create the frames
     simon = SimonCipher(int(SIMON_KEY, 16), key_size=128, block_size=64)
-    data1 = swap_order(SECRET_PASSWORD[0:16],wsz=16,gsz=2)
-    data2 = swap_order(SECRET_PASSWORD[17:32],wsz=16,gsz=2)
-    data3 = swap_order(SECRET_PASSWORD[33:48],wsz=16,gsz=2)
-    data4 = swap_order(SECRET_PASSWORD[49:64],wsz=16,gsz=2)
 
-    encrypted1 = simon.encrypt(int(data1, 16))[2:-1]
-    encrypted2 = simon.encrypt(int(data2, 16))[2:-1]
-    encrypted3 = simon.encrypt(int(data3, 16))[2:-1]
-    encrypted4 = simon.encrypt(int(data4, 16))[2:-1]
+    frame1 = encrypt(SECRET_PASSWORD[0:16], simon)
+    frame2 = encrypt(SECRET_PASSWORD[16:32], simon)
+    frame3 = encrypt(SECRET_PASSWORD[32:48], simon)
+    frame4 = encrypt(SECRET_PASSWORD[48:], simon)
 
-    frame1 = swap_order(encrypted1,wsz=16,gsz=2)
-    frame2 = swap_order(encrypted2,wsz=16,gsz=2)
-    frame3 = swap_order(encrypted3,wsz=16,gsz=2)
-    frame4 = swap_order(encrypted4,wsz=16,gsz=2)
-
-    start_address_swapped = swap_order(start_address.zfill(16),wsz=16,gsz=2)
-    num_bytes_swapped = swap_order(num_bytes.zfill(16),wsz=16,gsz=2)
-
-    encrypted_start_address = simon.encrypt(start_address_swapped)[2:-1]  # Encrypt the start address
-    encrypted_num_bytes = simon.encrypt(num_bytes_swapped)[2:-1]  # Encrypt the number of bytes
-
-    frame_start_address = swap_order(start_address.zfill(16),wsz=16,gsz=2)
-    frame_start_address = swap_order(num_bytes.zfill(16),wsz=16,gsz=2)
+    frame_start_address = encrypt(start_address, simon)
+    frame_num_bytes = encrypt(num_bytes, simon)
 
     # Pack the frames together
-    package = struct.pack('>QQQQQQ', frame1, frame2, frame3, frame4, frame_start_address, frame_start_address)
+    package = struct.pack('>QQQQQQ', frame1, frame2, frame3, frame4, frame_start_address, frame_num_bytes)
     h = SHA256.new()
     h.update(package)
     package_hash = h.hexdigest()  # Generate the package hash digest
-    package = struct.pack('>QQQQQQ64s',  frame1, frame2, frame3, frame4, reversed_start_address, reversed_start_address, package_hash)
+    package = struct.pack('>QQQQQQ64s',  frame1, frame2, frame3, frame4, frame_start_address, frame_num_bytes, package_hash)
 
     print("Package Hash: " + package_hash)
     print(str(struct.unpack('>QQQQQQ64s', package)))
     return package
 
 if __name__ == '__main__':
+    """
+    Main Function
+    """
     parser = argparse.ArgumentParser(description='Memory Readback Tool')
     parser.add_argument("--port", help="Serial port to send update over.", required=True)
     parser.add_argument("--address", help="First address to read from.", required=True)
