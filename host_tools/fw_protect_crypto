@@ -16,9 +16,11 @@ import random, os, struct
 from simon import SimonCipher
 
 def swap_order(d, wsz=4, gsz=2 ):
-        return "".join(["".join([m[i:i+gsz] for i in range(wsz-gsz,-gsz,-gsz)]) for m in [d[i:i+wsz] for i in range(0,len(d),wsz)]])
+    """Reorder byte order in hex string and return."""
+    return "".join(["".join([m[i:i+gsz] for i in range(wsz-gsz,-gsz,-gsz)]) for m in [d[i:i+wsz] for i in range(0,len(d),wsz)]])
 
 def complement(input_int):
+    """Compute the 2's compliment of input_int."""
     input_str = (bin(input_int)[2:]).zfill(8)
     result = ''
     for i in input_str:
@@ -29,6 +31,7 @@ def complement(input_int):
     return int(result, 2) + 1
 
 def compute_checksum(intelhex_str):
+    """Compute Intel Hex and return."""
 	try:
             checksum_hex = bytearray(intelhex_str.decode('hex'))
 	except:
@@ -56,7 +59,6 @@ if __name__ == '__main__':
     # Parse Intel hex file.
     firmware = IntelHex(args.infile)
 
-
     # Get version and size.
     firmware_size = firmware.maxaddr() + 1
     version = int(args.version)
@@ -68,7 +70,6 @@ if __name__ == '__main__':
     hex_data = sio.getvalue()
 
     # Hex data is in IntelHex format, see wikipedia article on formatting
-
 
     #create simon cipher, key goes in here in 0xhex, or int('hex-string-here',16)
     my_simon = SimonCipher(0,key_size=128, block_size=64)
@@ -157,7 +158,7 @@ if __name__ == '__main__':
     version_sig = hex(my_simon.encrypt(int(version_hash[0:32],16)))[2:-1]
     # Combine
     version_sig = version_sig + hex(my_simon.encrypt(int(version_hash[32:],16)))[2:-1]
-   
+
     # Encode the data as json and write to outfile.
     data = {
         'firmware_size' : firmware_size,

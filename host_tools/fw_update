@@ -40,6 +40,11 @@ class Firmware(object):
     BLOCK_SIZE = 16
 
     def __init__(self, fw_filename):
+        """
+        Initialize an instance of the Simon block cipher.
+        :param fw_filename: Read the firmware
+        :return: None
+        """
         with open(fw_filename, 'rb') as fw_file:
             data = fw_file.read()
             data = zlib.decompress(data)
@@ -52,6 +57,7 @@ class Firmware(object):
         self.reader = IntelHex(self.hex_data)
 
     def frames(self):
+        """ Pack the fireware into a frame object and return none. """
         # The address is not sent, so we currently only support a single segment
         # starting at address 0.
         if len(self.reader.segments()) > 1:
@@ -114,7 +120,7 @@ if __name__ == '__main__':
     if args.debug:
         print(metadata.encode('hex'))
     ser.write(metadata)
-    
+
 
     page_num = 0
     frame_number = 0
@@ -126,7 +132,7 @@ if __name__ == '__main__':
     for idx, frame in enumerate(firmware.frames()):
         if args.debug:
             print("Writing frame {} ({} bytes)...".format(idx, len(frame)))
-        
+
         ser.write(frame)  # Write the frame...
 
         if args.debug:
@@ -153,10 +159,9 @@ if __name__ == '__main__':
         else:
             frame_number += 1
 
- 
+
     print("Done writing firmware.")
 
     # Send a zero length payload to tell the bootlader to finish writing
     # it's page.
-    ser.write(struct.pack('>H', 0x0000))
-
+    ser.write(struct.pack('>H', 0x0000)
