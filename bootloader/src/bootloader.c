@@ -1,4 +1,4 @@
-/*
+*
  * bootloader.c
  *
  * If Port B Pin 2 (PB2 on the protostack board) is pulled to ground the 
@@ -274,6 +274,7 @@ void load_firmware(void) {
     {
 	wdt_reset();
 	data[sig_index] = key[sig_index - 2];
+	sig_index++;
     }
 
     // compare encrypted hash with received
