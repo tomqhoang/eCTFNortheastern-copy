@@ -65,7 +65,6 @@ int main(void) {
 
     // If jumper is present on pin 2, load new firmware
     if (!(PINB & (1 << PB2))) {
-        UART1_putchar('U');
         load_firmware();
     }
     else if (!(PINB & (1 << PB3))) {
@@ -74,14 +73,7 @@ int main(void) {
     }
     else {
         UART1_putchar('B');
-	uint32_t array[4];
-	array[0] = 0x1582bacf;
-	array[1] = 0x12345678;
-
-	uint32_t arrat2[4];
-	array[0] = 0x12312312;
-	array[4] = 0x87654321;
-	test_encryption();
+	// test_encryption();
         boot_firmware();
     }
 }
@@ -143,6 +135,7 @@ void readback(void) {
  */
 void load_firmware(void) {
     int frame_length = 0;
+    int frame_length_R = 0;
     unsigned char rcv = 0;
     unsigned char data[SPM_PAGESIZE];  // SPM_PAGESIZE is the size of a page
     unsigned int data_index = 0;
@@ -154,9 +147,14 @@ void load_firmware(void) {
     uint8_t sig[32] = {0};
     uint8_t page_hash[32] = {0};
     unsigned int sig_index = 0;
+    uint32_t hash_length = 0;
+    uint8_t max_segments = 0;
+    uint16_t segment_index = 0;
     RunEncryptionKeySchedule(key, round_keys);
 
     wdt_enable(WDTO_2S);  // Start the Watchdog Timer
+
+    UART1_putchar('U');
 
     while(!UART1_data_available()) {  // Wait for data
         __asm__ __volatile__("");
@@ -174,21 +172,30 @@ void load_firmware(void) {
     rcv = UART1_getchar();
     size |= (uint16_t)rcv;
 
-    // read version signature
+    UART1_putchar(OK);
+
+    wdt_reset();
+
+    // read version hash
     for(int i = 0; i < 32; i++){
 	wdt_reset();
 	sig[sig_index] = UART1_getchar();
 	sig_index++;
     }
 
+    data[0] = version << 8;
+    data[1] = version;
+
+    sig_index = 2;
+    for (int i = 0; i < 16; i++)
+    {
+	wdt_reset();
+	data[sig_index] = key[sig_index - 2];
+    }
+
     // compare encrypted hash with received
-    sha256(page_hash, (uint8_t *) version, (uint32_t) 16);
-    Encrypt(page_hash, round_keys);
-    Encrypt(page_hash+8, round_keys);
-    Encrypt(page_hash+16, round_keys);
-    Encrypt(page_hash+24, round_keys);
-    UART1_putchar(OK);
-    if(cmp(page_hash,sig, (int) 32) != 0){
+    sha256(page_hash, (uint8_t *) data, (uint32_t) 144);
+    if(cmp(page_hash, sig, (int) 32) != 0){
 	UART0_putchar('F');
 	while(1){
 	    __asm__ __volatile__("");
@@ -216,15 +223,18 @@ void load_firmware(void) {
 
     UART1_putchar(OK);  // Acknowledge the metadata
 
+    data_index = 0;
+    uint8_t frame_counter = 0;
     while (1) {  // Loop here until you can get all your characters
         wdt_reset();
-
+	frame_length_R = frame_length;
         // Get two bytes for the length.
         rcv = UART1_getchar();
         frame_length = (int)rcv << 8;
         rcv = UART1_getchar();
         frame_length += (int)rcv;
 
+	
         UART0_putchar((unsigned char)rcv);
         wdt_reset();
 
@@ -234,11 +244,15 @@ void load_firmware(void) {
             data[data_index] = UART1_getchar();
             data_index += 1;
         }
-    	
+    	frame_counter++;
 	
         // If we filed our page buffer, program it
         if(data_index == SPM_PAGESIZE || frame_length == 0) {
 	    wdt_reset();
+
+	    if (frame_length == 0)
+		UART1_putchar('D');
+
             UART1_putchar(OK);
 	    sig_index = 0;
 	    for(int i = 0; i < 32; i++){
@@ -246,8 +260,19 @@ void load_firmware(void) {
 		sig[sig_index] = UART1_getchar();
 		sig_index++;
 	    }
-	    sha256(page_hash, data, (uint32_t) 2048);
-            Encrypt(page_hash,round_keys);
+
+	    // last frame received
+	    if(frame_length == 0)
+	    {
+		hash_length = (frame_counter << 4) << 3;
+	    }
+	    else {
+		hash_length = 2048;
+	    }
+
+	    sha256(page_hash, data, hash_length);
+            wdt_reset();
+	    Encrypt(page_hash,round_keys);
             Encrypt(page_hash+8, round_keys);
             Encrypt(page_hash+16, round_keys);
 	    Encrypt(page_hash+24, round_keys);
@@ -258,10 +283,22 @@ void load_firmware(void) {
 		}
 		
 	    }
-	    Encrypt(sig,round_keys);
 	    wdt_reset();
-	    for(uint8_t i = 0; i < 32; i++){
+	    // Start at end of data in current page and fill zeros
+	    //
+	    
+	    max_segments = (frame_counter) * 2; 		
+	    for(uint8_t i = 0; i < max_segments; i++){
+		wdt_reset();
 		Decrypt(data + i*8, round_keys);
+	    }
+
+	    segment_index = max_segments << 3;
+	    while (segment_index < 256)
+	    {
+		wdt_reset();
+		data[segment_index] = 0;
+		segment_index++;
 	    }
             program_flash(page, data);
             page += SPM_PAGESIZE;
@@ -273,6 +310,7 @@ void load_firmware(void) {
             UART0_putchar(page);
 #endif
             wdt_reset();
+	    frame_counter = 0;
 
         }
 
