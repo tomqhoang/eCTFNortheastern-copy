@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 """
 Memory Readback Tool
 
@@ -13,36 +14,57 @@ A frame consists of four sections:
 | PW Length | Password | Start Addr | Num Bytes |
 -------------------------------------------------
 """
-
+import sys
+import json
 import serial
 import struct
-import sys
 import argparse
+
+from simon import SimonCipher
+from Crypto.Hash import SHA256
 
 RESP_OK = b'\x00'
 RESP_ERROR = b'\x01'
 
-def construct_request(start_addr, num_bytes):
-    # Read in secret password from file.
+def construct_request(start_address, num_bytes):
+    # Read in secret password from file
     SECRET_PASSWORD = ''
+    SIMON_KEY = ''
     try:
-        with open('secret_configure_outpt.txt', 'rb') as secret_file:
-            SECRET_PASSWORD = secret_file.read()
+        with open('secret_configure_output.txt', 'rb') as secret_file:
+	        jsonLine = json.loads(secret_file.read())
+	        SECRET_PASSWORD = jsonLine["password"]
+	        SIMON_KEY = jsonLine["SIMONKEY"]
     except:
-        pass # File not found
+        print("File not found")
+        pass
 
-    return struct.pack('>II', start_addr, num_bytes)
+    # Encrypt and create the frames
+    simon = SimonCipher(int(my_simon_key, 16), key_size=128, block_size=64)
+    frame1 = simon.encrypt(int(SECRET_PASSWORD[0:16], 16))
+    frame2 = simon.encrypt(int(SECRET_PASSWORD[17:32], 16))
+    frame3 = simon.encrypt(int(SECRET_PASSWORD[33:48], 16))
+    frame4 = simon.encrypt(int(SECRET_PASSWORD[49:64], 16))
 
+    encrypted_start_address = simon.encrypt(start_address)  # Encrypt the start address
+    encrypted_num_bytes = simon.encrypt(num_bytes)  # Encrypt the number of bytes
+
+    # Pack the frames together
+    package = struct.pack('>QQQQQQ', frame1, frame2, frame3, frame4, encrypted_start_address, encrypted_num_bytes) 
+    h = SHA256.new()
+    h.update(package)
+    package_hash = h.hexdigest()  # Generate the package hash digest
+    package = struct.pack('>QQQQQQ64s',  frame1, frame2, frame3, frame4, encrypted_start_address, encrypted_num_byte, package_hash) 
+
+    print("Package Hash: " + package_hash)
+    print(str(struct.unpack('>QQQQQQ64s', package)))
+    return package
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Memory Readback Tool')
-
-    parser.add_argument("--port", help="Serial port to send update over.",
-                        required=True)
-    parser.add_argument("--address", help="First address to read from.",
-                        required=True)
-    parser.add_argument("--num-bytes", help="Number of bytes to read.",
-                        required=True)
+    parser.add_argument("--port", help="Serial port to send update over.", required=True)
+    parser.add_argument("--address", help="First address to read from.", required=True)
+    parser.add_argument("--num-bytes", help="Number of bytes to read.", required=True)
     parser.add_argument("--datafile", help="File to write data to (optional).")
     args = parser.parse_args()
 
@@ -52,6 +74,7 @@ if __name__ == '__main__':
     ser = serial.Serial(args.port, baudrate=115200, timeout=2)
 
     # Wait for bootloader to reset/enter readback mode.
+    print("Waiting for bootloader...")
     while ser.read(1) != 'R':
         pass
 

@@ -1,4 +1,5 @@
-from __future__ import print_function
+#! /usr/bin/python
+#from __future__ import print_function
 from collections import deque
 
 __author__ = 'inmcm'
@@ -41,8 +42,8 @@ class SimonCipher:
             self.block_size = block_size
             self.word_size = self.block_size >> 1
         except KeyError:
-            print('Invalid block size!')
-            print('Please use one of the following block sizes:', [x for x in self.__valid_setups.keys()])
+            print 'Invalid block size!'
+            print 'Please use one of the following block sizes:'+ [str(x) for x in self.__valid_setups.keys()]
             raise
 
         # Setup Number of Rounds, Z Sequence, and Key Size
@@ -50,8 +51,8 @@ class SimonCipher:
             self.rounds, self.zseq = self.possible_setups[key_size]
             self.key_size = key_size
         except KeyError:
-            print('Invalid key size for selected block size!!')
-            print('Please use one of the following key sizes:', [x for x in self.possible_setups.keys()])
+            print 'Invalid key size for selected block size!!'
+            print 'Please use one of the following key sizes:' + [str(x) for x in self.possible_setups.keys()]
             raise
 
         # Create Properly Sized bit mask for truncating addition and left shift outputs
@@ -63,16 +64,15 @@ class SimonCipher:
             self.iv_upper = self.iv >> self.word_size
             self.iv_lower = self.iv & self.mod_mask
         except (ValueError, TypeError):
-            print('Invalid IV Value!')
-            print('Please Provide IV as int')
+            print 'Please Provide IV as int'
             raise
 
         # Parse the given Counter and truncate it to the block length
         try:
             self.counter = counter & ((2 ** self.block_size) - 1)
         except (ValueError, TypeError):
-            print('Invalid Counter Value!')
-            print('Please Provide Counter as int')
+            print 'Invalid Counter Value!'
+            print 'Please Provide Counter as int'
             raise
 
         # Check Cipher Mode
@@ -80,16 +80,16 @@ class SimonCipher:
             position = self.__valid_modes.index(mode)
             self.mode = self.__valid_modes[position]
         except ValueError:
-            print('Invalid cipher mode!')
-            print('Please use one of the following block cipher modes:', self.__valid_modes)
+            print 'Invalid cipher mode!'
+            print 'Please use one of the following block cipher modes:' + str(self.__valid_modes)
             raise
 
         # Parse the given key and truncate it to the key length
         try:
             self.key = key & ((2 ** self.key_size) - 1)
         except (ValueError, TypeError):
-            print('Invalid Key Value!')
-            print('Please Provide Key as int')
+            print 'Invalid Key Value!'
+            print 'Please Provide Key as int'
             raise
 
         # Pre-compile key schedule
@@ -171,8 +171,8 @@ class SimonCipher:
             b = (plaintext >> self.word_size) & self.mod_mask
             a = plaintext & self.mod_mask
         except TypeError:
-            print('Invalid plaintext!')
-            print('Please provide plaintext as int')
+            print 'Invalid plaintext!'
+            print 'Please provide plaintext as int'
             raise
 
         if self.mode == 'ECB':
@@ -241,8 +241,8 @@ class SimonCipher:
             b = (ciphertext >> self.word_size) & self.mod_mask
             a = ciphertext & self.mod_mask
         except TypeError:
-            print('Invalid ciphertext!')
-            print('Please provide ciphertext as int')
+            print 'Invalid ciphertext!'
+            print 'Please provide ciphertext as int'
             raise
 
         if self.mode == 'ECB':
@@ -365,8 +365,8 @@ class SimonCipher:
                 self.iv_upper = self.iv >> self.word_size
                 self.iv_lower = self.iv & self.mod_mask
             except TypeError:
-                print('Invalid Initialization Vector!')
-                print('Please provide IV as int')
+                print 'Invalid Initialization Vector!'
+                print 'Please provide IV as int'
                 raise
         return self.iv
 
@@ -374,4 +374,4 @@ class SimonCipher:
 if __name__ == "__main__":
     w = SimonCipher(0x1918111009080100, key_size=64, block_size=32)
     t = w.encrypt(0x65656877)
-    print(hex(t))
+    print str(hex(t))

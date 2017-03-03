@@ -1,19 +1,11 @@
 # Northeastern University ECE Department's Embedded CTF Code
 
 This repository contains Northeastern University ECE's reference system for MITRE's 2017 
-[Embedded System CTF](http://mitrecyberacademy.org/competitions/embedded/).
-This example meets all the requirements outlined in the challenge writeup
-document, but is not implemented securely.  
-
-## Disclaimer
-This code is incomplete, insecure, and does not meet MITRE standards for
-quality.  This code is being provided for educational purposes to serve as a
-simple example that meets the minimum functional requirements for the 2017 MITRE
-eCTF competition.  Use this code at your own risk!
+[Embedded System CTF](http://mitrecyberacademy.org/competitions/embedded/). To centralize information between our repository and MITRE's, we consolidated setup details to this document.
 
 # Getting Started
 Before you can use the bootloader, you'll first need to get up and running
-with our common development environment. All Northastern  development and testing was 
+with our common development environment. All Northeastern development and testing was 
 on a vagrant provisioned virtual machine.
 
 ## Prerequisites
@@ -62,7 +54,7 @@ files for our host tools and bootloader, with the exception of a loading script 
 `loadboot`, which is useful for quickly writing code to the device. 
 
 1. `Encryption and Decryption`
-   In order to encrypt and decrypt our data, we made use of Simon, a light weight 
+   In order to encrypt and decrypt our data, we made use of Simon, a lightweight 
    block cipher designed for hardware applications. It was publically released by 
    the NSA in 2013. Click [here](https://en.wikipedia.org/wiki/Simon_(cipher)) for more information about Simon.
    On the host_tools end, we used [this](https://github.com/inmcm/Simon_Speck_Ciphers/tree/master/Python) Python 
@@ -207,5 +199,14 @@ avrdude: Version 6.0.1, compiled on Dec 16 2013 at 17:26:24
 
 Once you run `make debug` you should get a window that looks like this:
 ![alt text](gdb_example.png)
+
+
+## Disclaimer
+This code is incomplete, insecure, and does not meet MITRE standards for
+quality.  This code is being provided for educational purposes to serve as a
+simple example that meets the minimum functional requirements for the 2017 MITRE
+eCTF competition.  Use this code at your own risk!
+
+![uber-red-lightgif](https://fsmedia.imgix.net/23/c5/52/3b/7371/4891/bbb5/6b4ba2f4236e/uber-red-lightgif.gif)
 
 We would like to thank MITRE for making this competition happen, and for providing a lot of the framework for this README. We appreciate having this competition; it was a lot of fun for the team and we learned a lot. 

@@ -6,15 +6,18 @@ Bootloader Build Tool
 This tool is responsible for building the bootloader from source and
 copying the build outputs into the host tools directory for programming.
 """
-import os
-import sys
+
+import argparse
 import json
+import os
 import shutil
 import subprocess
-import argparse
+import sys
+
 from Crypto import Random
 from intelhex import IntelHex
 
+# Define the directory where the bootloader lives.
 BOOTLOADER_DIR = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', 'bootloader'))
 
 def generate_readback_password():
@@ -23,7 +26,7 @@ def generate_readback_password():
     """
     pw = Random.new().read(32).encode('hex')
 
-    # Write password to secret file
+    # Write password to secret file in this directory
     with open('secret_build_output.txt', 'wb+') as secret_build_output:
         data = { 'password' : pw }
         data = json.dumps(data)
@@ -42,9 +45,13 @@ def make(password=None):
 
 def clean():
     subprocess.call('make clean', cwd=BOOTLOADER_DIR, shell=True)
+    # Remove 'secret_build_output.txt' if it exists.
     [os.remove(f) if os.path.exists(f) else None for f in ['secret_build_output.txt']]
 
 def write_fuse_file(fuse_name, fuse_value):
+    """
+    Write fuses to the proper file and format as IntelHex.
+    """
     hex_file = IntelHex()
     hex_file[0] = fuse_value
 
