@@ -71,7 +71,7 @@ eeprom.hex: strip
 	$(OBJCOPY) -j .eeprom --set-section-flags=.eeprom="alloc,load" --change-section-lma .eeprom=0 -O ihex bootloader.elf eeprom.hex
 
 flash: flash.hex eeprom.hex
-	 avrdude -P usb -p m1284p -c $(PROGRAMMER)  -u -U flash:w:flash.hex:i \
+	 avrdude -F -P usb -p m1284p -c $(PROGRAMMER)  -u -U flash:w:flash.hex:i \
 						    -U eeprom:w:eeprom.hex:i \
 						    -U lfuse:w:lfuse.hex:i \
 						    -U hfuse:w:hfuse.hex:i \

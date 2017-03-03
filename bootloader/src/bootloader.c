@@ -65,7 +65,6 @@ int main(void) {
 
     // If jumper is present on pin 2, load new firmware
     if (!(PINB & (1 << PB2))) {
-        UART1_putchar('U');
         load_firmware();
     }
     else if (!(PINB & (1 << PB3))) {
@@ -74,14 +73,7 @@ int main(void) {
     }
     else {
         UART1_putchar('B');
-	uint32_t array[4];
-	array[0] = 0x1582bacf;
-	array[1] = 0x12345678;
-
-	uint32_t arrat2[4];
-	array[0] = 0x12312312;
-	array[4] = 0x87654321;
-	test_encryption();
+	// test_encryption();
         boot_firmware();
     }
 }
@@ -158,6 +150,8 @@ void load_firmware(void) {
 
     wdt_enable(WDTO_2S);  // Start the Watchdog Timer
 
+    UART1_putchar('U');
+
     while(!UART1_data_available()) {  // Wait for data
         __asm__ __volatile__("");
     }
@@ -174,21 +168,30 @@ void load_firmware(void) {
     rcv = UART1_getchar();
     size |= (uint16_t)rcv;
 
-    // read version signature
+    UART1_putchar(OK);
+
+    wdt_reset();
+
+    // read version hash
     for(int i = 0; i < 32; i++){
 	wdt_reset();
 	sig[sig_index] = UART1_getchar();
 	sig_index++;
     }
 
+    data[0] = version << 8;
+    data[1] = version;
+
+    sig_index = 2;
+    for (int i = 0; i < 16; i++)
+    {
+	wdt_reset();
+	data[sig_index] = key[sig_index - 2];
+    }
+
     // compare encrypted hash with received
-    sha256(page_hash, (uint8_t *) version, (uint32_t) 16);
-    Encrypt(page_hash, round_keys);
-    Encrypt(page_hash+8, round_keys);
-    Encrypt(page_hash+16, round_keys);
-    Encrypt(page_hash+24, round_keys);
-    UART1_putchar(OK);
-    if(cmp(page_hash,sig, (int) 32) != 0){
+    sha256(page_hash, (uint8_t *) data, (uint32_t) 144);
+    if(cmp(page_hash, sig, (int) 32) != 0){
 	UART0_putchar('F');
 	while(1){
 	    __asm__ __volatile__("");
@@ -216,6 +219,9 @@ void load_firmware(void) {
 
     UART1_putchar(OK);  // Acknowledge the metadata
 
+    data_index = 0;
+    uint8_t loop_counter = 0;
+
     while (1) {  // Loop here until you can get all your characters
         wdt_reset();
 
@@ -235,6 +241,15 @@ void load_firmware(void) {
             data_index += 1;
         }
     	
+	/*
+	if (loop_counter == 1)
+	{
+	    while (1)
+	    {
+		wdt_reset();
+	    }
+	}
+	*/
 	
         // If we filed our page buffer, program it
         if(data_index == SPM_PAGESIZE || frame_length == 0) {
@@ -245,6 +260,11 @@ void load_firmware(void) {
 	    	wdt_reset();
 		sig[sig_index] = UART1_getchar();
 		sig_index++;
+	    }
+
+	    if (loop_counter == 1)
+	    {
+		sha256(&version, &version, (uint32_t) 16);
 	    }
 	    sha256(page_hash, data, (uint32_t) 2048);
             Encrypt(page_hash,round_keys);
@@ -261,6 +281,7 @@ void load_firmware(void) {
 	    Encrypt(sig,round_keys);
 	    wdt_reset();
 	    for(uint8_t i = 0; i < 32; i++){
+		wdt_reset();
 		Decrypt(data + i*8, round_keys);
 	    }
             program_flash(page, data);
@@ -273,6 +294,7 @@ void load_firmware(void) {
             UART0_putchar(page);
 #endif
             wdt_reset();
+	    loop_counter++;
 
         }
 

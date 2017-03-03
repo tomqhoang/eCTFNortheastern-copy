@@ -45,7 +45,7 @@ class Firmware(object):
             data = zlib.decompress(data)
             data = json.loads(data)
       	    self.version = data['version']
-            self.version_sig = data['version_sig']
+            self.version_hash = data['version_hash']
             self.size = data['firmware_size']
             self.size = 3600
             self.hex_data = StringIO(data['hex_data'])
@@ -84,6 +84,9 @@ class Firmware(object):
     def close(self):
         self.reader.close()
 
+def response(resp):
+    if resp != RESP_OK:
+        raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
@@ -98,14 +101,14 @@ if __name__ == '__main__':
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     print('Opening serial port...')
-    ser = serial.Serial(args.port, baudrate=115200, timeout=2)
-    import pdb; pdb.set_trace()
+    ser = serial.Serial(args.port, baudrate=115200, timeout=10)
     # Open our firmware file.
     print('Opening firmware file...')
     firmware = Firmware(args.firmware)
     print('Version: {}'.format(firmware.version))
     print('Size: {} bytes (not including release message)'.format(firmware.size))
 
+    print firmware.version_hash
     print('Waiting for bootloader to enter update mode...')
     while ser.read(1) != 'U':
         pass
@@ -120,11 +123,12 @@ if __name__ == '__main__':
     frame_number = 0
     # Wait for an OK from the bootloader.
     resp = ser.read()
+    time.sleep(0.1)
     response(resp)
 
-    # send version sig
-    signature = struct.pack('>32s',binascii.unhexlify((firmware.tags[page_num])))
-    ser.write(signature)
+    # send version hash
+    version_hash = struct.pack('>32s',binascii.unhexlify((firmware.version_hash)))
+    ser.write(version_hash)
 
     resp = ser.read()
     if resp == RESP_ERROR:
@@ -151,7 +155,10 @@ if __name__ == '__main__':
         if args.debug:
             print("Resp: {}".format(ord(resp)))
         if frame_number == 15:
-            stuff = struct.pack('>32s',binascii.unhexlify((firmware.tags[page_num])))
+            try:
+                stuff = struct.pack('>32s',binascii.unhexlify((firmware.tags[page_num])))
+            except:
+                import pdb; pdb.set_trace()
             ser.write(stuff)
             frame_number = 0
             page_num += 1
@@ -168,6 +175,3 @@ if __name__ == '__main__':
     # it's page.
     ser.write(struct.pack('>H', 0x0000))
 
-def response(resp):
-    if resp != RESP_OK:
-        raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
