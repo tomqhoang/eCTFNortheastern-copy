@@ -50,13 +50,12 @@ def encrypt(value, simon):
     if len(value) > 16 and len(value) < 0:
         print "Not a valid value lenght"
         sys.exit(1)
-    print("original val: "+ value.zfill(16))
+    #print("original val: "+ value.zfill(16))
     valueSwapped = swap_order(value.zfill(16),wsz=16,gsz=2)
-    print("swapped val: "+ valueSwapped)
+    #print("swapped val: "+ valueSwapped)
     valueEncrypted = hex(simon.encrypt(int(valueSwapped,16)))[2:-1]  # Encrypt the start address
-    print("valueDecrypt : "+ valueDecrypted)
     valueFinal = swap_order(valueEncrypted.zfill(16),wsz=16,gsz=2)
-    print("valueFinal : "+ valueFinal)
+    #print("valueFinal : "+ valueFinal)
     return binascii.unhexlify(valueFinal)
 
 def construct_request(start_address, num_bytes):
