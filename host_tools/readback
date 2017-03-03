@@ -4,14 +4,13 @@
 Memory Readback Tool
 
 A frame consists of four sections:
-1. One byte for the length of the password.
-2. The variable-length password.
-3. Four bytes for the start address.
-4. Four bytes for the number of bytes to read.
+1. Thirty two bytes for the password.
+2. Four bytes for the start address.
+3. Four bytes for the number of bytes to read.
 
-  [ 0x01 ]  [ variable ]  [ 0x04 ]    [ 0x04 ]
+[ 0x32 ]  [ 0x04 ]    [ 0x04 ]   [0x32]
 -------------------------------------------------
-| PW Length | Password | Start Addr | Num Bytes |
+ Password | Start Addr | Num Bytes | SHA256
 -------------------------------------------------
 """
 import sys
@@ -25,6 +24,10 @@ from Crypto.Hash import SHA256
 
 RESP_OK = b'\x00'
 RESP_ERROR = b'\x01'
+
+# Swaps bytes in a list, see StackOverflow
+def swap_order(d, wsz=4, gsz=2 ):
+        return "".join(["".join([m[i:i+gsz] for i in range(wsz-gsz,-gsz,-gsz)]) for m in [d[i:i+wsz] for i in range(0,len(d),wsz)]])
 
 def construct_request(start_address, num_bytes):
     # Read in secret password from file
@@ -40,21 +43,37 @@ def construct_request(start_address, num_bytes):
         pass
 
     # Encrypt and create the frames
-    simon = SimonCipher(int(my_simon_key, 16), key_size=128, block_size=64)
-    frame1 = simon.encrypt(int(SECRET_PASSWORD[0:16], 16))
-    frame2 = simon.encrypt(int(SECRET_PASSWORD[17:32], 16))
-    frame3 = simon.encrypt(int(SECRET_PASSWORD[33:48], 16))
-    frame4 = simon.encrypt(int(SECRET_PASSWORD[49:64], 16))
+    simon = SimonCipher(int(SIMON_KEY, 16), key_size=128, block_size=64)
+    data1 = swap_order(SECRET_PASSWORD[0:16],wsz=16,gsz=2)
+    data2 = swap_order(SECRET_PASSWORD[17:32],wsz=16,gsz=2)
+    data3 = swap_order(SECRET_PASSWORD[33:48],wsz=16,gsz=2)
+    data4 = swap_order(SECRET_PASSWORD[49:64],wsz=16,gsz=2)
 
-    encrypted_start_address = simon.encrypt(start_address)  # Encrypt the start address
-    encrypted_num_bytes = simon.encrypt(num_bytes)  # Encrypt the number of bytes
+    encrypted1 = simon.encrypt(int(data1, 16))[2:-1]
+    encrypted2 = simon.encrypt(int(data2, 16))[2:-1]
+    encrypted3 = simon.encrypt(int(data3, 16))[2:-1]
+    encrypted4 = simon.encrypt(int(data4, 16))[2:-1]
+
+    frame1 = swap_order(encrypted1,wsz=16,gsz=2)
+    frame2 = swap_order(encrypted2,wsz=16,gsz=2)
+    frame3 = swap_order(encrypted3,wsz=16,gsz=2)
+    frame4 = swap_order(encrypted4,wsz=16,gsz=2)
+
+    start_address_swapped = swap_order(start_address.zfill(16),wsz=16,gsz=2)
+    num_bytes_swapped = swap_order(num_bytes.zfill(16),wsz=16,gsz=2)
+
+    encrypted_start_address = simon.encrypt(start_address_swapped)[2:-1]  # Encrypt the start address
+    encrypted_num_bytes = simon.encrypt(num_bytes_swapped)[2:-1]  # Encrypt the number of bytes
+
+    frame_start_address = swap_order(start_address.zfill(16),wsz=16,gsz=2)
+    frame_start_address = swap_order(num_bytes.zfill(16),wsz=16,gsz=2)
 
     # Pack the frames together
-    package = struct.pack('>QQQQQQ', frame1, frame2, frame3, frame4, encrypted_start_address, encrypted_num_bytes) 
+    package = struct.pack('>QQQQQQ', frame1, frame2, frame3, frame4, frame_start_address, frame_start_address)
     h = SHA256.new()
     h.update(package)
     package_hash = h.hexdigest()  # Generate the package hash digest
-    package = struct.pack('>QQQQQQ64s',  frame1, frame2, frame3, frame4, encrypted_start_address, encrypted_num_byte, package_hash) 
+    package = struct.pack('>QQQQQQ64s',  frame1, frame2, frame3, frame4, reversed_start_address, reversed_start_address, package_hash)
 
     print("Package Hash: " + package_hash)
     print(str(struct.unpack('>QQQQQQ64s', package)))
