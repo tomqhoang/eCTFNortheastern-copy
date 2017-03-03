@@ -9,7 +9,7 @@ A frame consists of four sections:
 3. Four bytes for the number of bytes to read.
 4. Thirty two bytes for SHA256 representation.
 
-[ 0x32 ]  [ 0x04 ]    [ 0x04 ]   [0x32]
+[ 0x20 ]  [ 0x04 ]    [ 0x04 ]   [ 0x20 ]
 -------------------------------------------------
  Password | Start Addr | Num Bytes | SHA256
 -------------------------------------------------
@@ -19,6 +19,7 @@ import json
 import serial
 import struct
 import argparse
+import binascii
 
 from simon import SimonCipher
 from Crypto.Hash import SHA256
@@ -33,7 +34,7 @@ def swap_order(d, wsz=4, gsz=2 ):
 def encrypt(value, simon):
     """
     This is a function that encrypts a value with len(value) 0 to 16
-    to a encrypted binary data
+    to a 16 char encrypted string
     Param
     ---------
     value : int or string
@@ -42,21 +43,21 @@ def encrypt(value, simon):
         Cipher used to encrypt data
     Returns
     ----------
-    binary
-        Returns encrypted binary data representation of value
+    sting
+        encrypted string
     """
     # Encrypt and create the frames to pack
     value = str(value)
     if len(value) > 16 and len(value) < 0:
-        print "Not a valid value lenght"
+        print "Not a valid value length"
         sys.exit(1)
-    #print("original val: "+ value.zfill(16))
+    print("original val: "+ value.zfill(16))
     valueSwapped = swap_order(value.zfill(16),wsz=16,gsz=2)
-    #print("swapped val: "+ valueSwapped)
+    print("swapped val: "+ valueSwapped)
     valueEncrypted = hex(simon.encrypt(int(valueSwapped,16)))[2:-1]  # Encrypt the start address
     valueFinal = swap_order(valueEncrypted.zfill(16),wsz=16,gsz=2)
-    #print("valueFinal : "+ valueFinal)
-    return binascii.unhexlify(valueFinal)
+    print("valueFinal : "+ valueFinal)
+    return valueFinal
 
 def construct_request(start_address, num_bytes):
     """
@@ -93,16 +94,20 @@ def construct_request(start_address, num_bytes):
 
     frame_start_address = encrypt(start_address, simon)
     frame_num_bytes = encrypt(num_bytes, simon)
+    finalFrame = frame1 + frame2 + frame3 + frame4 + frame_start_address + frame_num_bytes
+    print("FINAL FRAME : " + finalFrame)
 
-    # Pack the frames together
-    package = struct.pack('>QQQQQQ', frame1, frame2, frame3, frame4, frame_start_address, frame_num_bytes)
+    #Generate hash of final frame
     h = SHA256.new()
-    h.update(package)
-    package_hash = h.hexdigest()  # Generate the package hash digest
-    package = struct.pack('>QQQQQQ64s',  frame1, frame2, frame3, frame4, frame_start_address, frame_num_bytes, package_hash)
-
+    h.update(finalFrame)
+    print("HASH : " + h.hexdigest())
+    package_hash = binascii.unhexlify(h.hexdigest())
+    #Big Endian 48byte for final frame and 32byte for hash
+    package = struct.pack('>48s32s',  binascii.unhexlify(finalFrame), package_hash)
     print("Package Hash: " + package_hash)
-    print(str(struct.unpack('>QQQQQQ64s', package)))
+    a, b = struct.unpack('>48s32s', package)
+    print("a : " + binascii.hexlify(a))
+    print("b : " + binascii.hexlify(b))
     return package
 
 if __name__ == '__main__':
