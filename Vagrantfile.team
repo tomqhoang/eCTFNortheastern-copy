@@ -19,8 +19,8 @@ end
 $team_apt_packages = "gcc-avr avr-libc make avrdude avarice gdb-avr"
 
 # Custom Python packages installed iwth pip.
-$team_pip_packages = "pyserial pycrypto intelhex"
-
+$team_pip_packages = "pyserial pycrypto intelhex hashlib cStringIO json zlib collections"
+ 
 ################################################################################
 # Teeam Provisioning Scripts
 ################################################################################
