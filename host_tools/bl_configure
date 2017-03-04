@@ -6,7 +6,7 @@ This tool is responsible for configuring the bootloader after it is programmed.
 """
 import argparse
 import binascii
-import hashlib
+from hashlib import sha256
 import json
 import os
 import serial
@@ -46,9 +46,10 @@ def configure_bootloader(UART1):
     This function configures the bootloader by generating a key, password, and hash of the two
     and sending it to the bootloader over a serial connection.
     """
-    confKey = Random.new().read(16).encode('hex') # generates a key of 128 bits
-    password = generate_secret_file(confKey)
-    hash_data = hashlib.sha256(password + confKey).hexdigest()
+    confKey = Random.new().read(16).encode('hex').zfill(32) # generates a key of 128 bits
+    password = generate_secret_file(confKey).zfill(64) 
+    hash_data = sha256(password.decode('hex')).hexdigest().zfill(64)
+
 
     # TODO: change this to print out to DEBUG
     print 'Waiting for bootloader availability to receive key...'
@@ -60,13 +61,13 @@ def configure_bootloader(UART1):
     print 'Sending key to bootloader'
 
     # Store the parameters in the proper format before sending
-    password_struct = struct.pack('>32s', binascii.unhexlify(password))
+    #password_struct = struct.pack('>32s', binascii.unhexlify(password))
     conf_struct = struct.pack('>16s', binascii.unhexlify(confKey))
     hash_struct = struct.pack('>32s', binascii.unhexlify(hash_data))
 
-    UART1.write(password_struct)
-    UART1.write(conf_struct)
+    #UART1.write(password_struct)
     UART1.write(hash_struct)
+    UART1.write(conf_struct)
 
     return
 

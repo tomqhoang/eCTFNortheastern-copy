@@ -10,7 +10,7 @@ import zlib
 
 from cStringIO import StringIO
 from hashlib import sha256
-from indelhex import IntelHex
+from intelhex import IntelHex
 from simon import SimonCipher
 
 # TODO: fix this comment
@@ -74,7 +74,6 @@ if __name__ == '__main__':
     secret_config_json = json.loads(secret_config_file_txt)
     key_string = secret_config_json['SIMONKEY']
     key = int(key_string, 16)
-    key = 0
 
     #create simon cipher, key goes in here in 0xhex, or int('hex-string-here',16)
     my_simon = SimonCipher(key, key_size=128, block_size=64)
