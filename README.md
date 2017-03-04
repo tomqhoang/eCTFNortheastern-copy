@@ -212,6 +212,6 @@ quality.  This code is being provided for educational purposes to serve as a
 simple example that meets the minimum functional requirements for the 2017 MITRE
 eCTF competition.  Use this code at your own risk!
 
-![uber-red-lightgif](https://github.com/starfleetcadet75/eCTFNortheastern/tree/amber-docs-1/uber-red-lightgif.gif)
+![uber-red-lightgif](https://github.com/starfleetcadet75/eCTFNortheastern/blob/amber-docs-1/uber-red-lightgif.gif)
 
 We would like to thank MITRE for making this competition happen, and for providing a lot of the framework for this README. We appreciate having this competition; it was a lot of fun for the team and we learned a lot.
