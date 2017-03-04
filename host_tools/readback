@@ -1,48 +1,143 @@
 #!/usr/bin/env python
+
 """
 Memory Readback Tool
 
 A frame consists of four sections:
-1. One byte for the length of the password.
-2. The variable-length password.
-3. Four bytes for the start address.
-4. Four bytes for the number of bytes to read.
+1. Thirty two bytes for the password.
+2. Four bytes for the start address.
+3. Four bytes for the number of bytes to read.
+4. Thirty two bytes for SHA256 representation.
 
-  [ 0x01 ]  [ variable ]  [ 0x04 ]    [ 0x04 ]
+[ 0x20 ]  [ 0x04 ]    [ 0x04 ]   [ 0x20 ]
 -------------------------------------------------
-| PW Length | Password | Start Addr | Num Bytes |
+ Password | Start Addr | Num Bytes | SHA256
 -------------------------------------------------
 """
-
+import sys
+import json
 import serial
 import struct
-import sys
 import argparse
+import binascii
+
+from simon import SimonCipher
+from Crypto.Hash import SHA256
 
 RESP_OK = b'\x00'
 RESP_ERROR = b'\x01'
 
-def construct_request(start_addr, num_bytes):
-    # Read in secret password from file.
+# Swaps bytes in a list, see StackOverflow
+def swap_order(d, wsz=4, gsz=2 ):
+    """
+    This is a function that swapping byte order in hex strings representing 16-bit words.
+
+    Note:
+    On the courtesy of StackOverflow(http://stackoverflow.com/questions/13155570/reorder-byte-order-in-hex-string-python)
+
+    Param
+    ---------
+    d : string
+        the input hex
+    wsz: int
+        the word-size in nibbles (e.g for 16-bit words wsz=4, for 32-bit words wsz=8)
+    gsz: int
+        the number of nibbles which stay together (e.g for reordering bytes gsz=2, for reordering 16-bit words gsz = 4)
+
+    Returns
+    ----------
+    sting
+        Hex string in reserved order
+    """
+        return "".join(["".join([m[i:i+gsz] for i in range(wsz-gsz,-gsz,-gsz)]) for m in [d[i:i+wsz] for i in range(0,len(d),wsz)]])
+
+def encrypt(value, simon):
+    """
+    This is a function that encrypts a value with len(value) 0 to 16
+    to a 16 char encrypted string
+    Param
+    ---------
+    value : int or string
+        value to encrypt
+    simon : SimonCipher
+        Cipher used to encrypt data
+    Returns
+    ----------
+    sting
+        encrypted string
+    """
+    # Encrypt and create the frames to pack
+    value = str(value)
+    if len(value) > 16 and len(value) < 0:
+        print "Not a valid value length"
+        sys.exit(1)
+    print("original val: "+ value.zfill(16))
+    valueSwapped = swap_order(value.zfill(16),wsz=16,gsz=2)
+    print("swapped val: "+ valueSwapped)
+    valueEncrypted = hex(simon.encrypt(int(valueSwapped,16)))[2:-1]  # Encrypt the start address
+    valueFinal = swap_order(valueEncrypted.zfill(16),wsz=16,gsz=2)
+    print("valueFinal : "+ valueFinal)
+    return valueFinal
+
+def construct_request(start_address, num_bytes):
+    """
+    function that constructs request package
+    Param
+    -------
+    start_address: int
+        the start of the memory address
+    num_bytes: int
+        the number of bytes to return
+    Returns:
+    package
+        ready to send package
+    """
+    # Read in secret password from file
     SECRET_PASSWORD = ''
+    SIMON_KEY = ''
     try:
-        with open('secret_configure_outpt.txt', 'rb') as secret_file:
-            SECRET_PASSWORD = secret_file.read()
+        with open('secret_configure_output.txt', 'rb') as secret_file:
+	        jsonLine = json.loads(secret_file.read())
+	        SECRET_PASSWORD = jsonLine["password"]
+	        SIMON_KEY = jsonLine["SIMONKEY"]
     except:
-        pass # File not found
+        print("File not found")
+        pass
 
-    return struct.pack('>II', start_addr, num_bytes)
+    # Encrypt and create the frames
+    simon = SimonCipher(int(SIMON_KEY, 16), key_size=128, block_size=64)
 
+    frame1 = encrypt(SECRET_PASSWORD[0:16], simon)
+    frame2 = encrypt(SECRET_PASSWORD[16:32], simon)
+    frame3 = encrypt(SECRET_PASSWORD[32:48], simon)
+    frame4 = encrypt(SECRET_PASSWORD[48:], simon)
+
+    frame_start_address = encrypt(start_address, simon)
+    frame_num_bytes = encrypt(num_bytes, simon)
+    finalFrame = frame1 + frame2 + frame3 + frame4 + frame_start_address + frame_num_bytes
+    print("FINAL FRAME : " + finalFrame)
+
+    #Generate hash of final frame
+    h = SHA256.new()
+    h.update(finalFrame)
+    print("HASH : " + h.hexdigest())
+    package_hash = binascii.unhexlify(h.hexdigest())
+    #Big Endian 48byte for final frame and 32byte for hash
+    package = struct.pack('>48s32s',  binascii.unhexlify(finalFrame), package_hash)
+    print("Package Hash: " + package_hash)
+    a, b = struct.unpack('>48s32s', package)
+    print("a : " + binascii.hexlify(a))
+    print("b : " + binascii.hexlify(b))
+    return package
 
 if __name__ == '__main__':
+    """
+    Main Function
+    """
     parser = argparse.ArgumentParser(description='Memory Readback Tool')
-
-    parser.add_argument("--port", help="Serial port to send update over.",
-                        required=True)
-    parser.add_argument("--address", help="First address to read from.",
-                        required=True)
-    parser.add_argument("--num-bytes", help="Number of bytes to read.",
-                        required=True)
+    parser.add_argument("--port", help="Serial port to send update over.", required=True)
+    parser.add_argument("--address", help="First address to read from.", required=True)
+    parser.add_argument("--num-bytes", help="Number of bytes to read.", required=True)
     parser.add_argument("--datafile", help="File to write data to (optional).")
     args = parser.parse_args()
 
@@ -52,6 +147,7 @@ if __name__ == '__main__':
     ser = serial.Serial(args.port, baudrate=115200, timeout=2)
 
     # Wait for bootloader to reset/enter readback mode.
+    print("Waiting for bootloader...")
     while ser.read(1) != 'R':
         pass
 

@@ -1,4 +1,11 @@
-from __future__ import print_function
+#! /usr/bin/python
+#from __future__ import print_function
+"""
+SIMON Library
+
+Note:
+On the courtesy of Simon Speck Ciphers Library (https://github.com/inmcm/Simon_Speck_Ciphers/tree/master/Python)
+"""
 from collections import deque
 
 __author__ = 'inmcm'
@@ -41,8 +48,8 @@ class SimonCipher:
             self.block_size = block_size
             self.word_size = self.block_size >> 1
         except KeyError:
-            print('Invalid block size!')
-            print('Please use one of the following block sizes:', [x for x in self.__valid_setups.keys()])
+            print 'Invalid block size!'
+            print 'Please use one of the following block sizes:'+ [str(x) for x in self.__valid_setups.keys()]
             raise
 
         # Setup Number of Rounds, Z Sequence, and Key Size
@@ -50,8 +57,8 @@ class SimonCipher:
             self.rounds, self.zseq = self.possible_setups[key_size]
             self.key_size = key_size
         except KeyError:
-            print('Invalid key size for selected block size!!')
-            print('Please use one of the following key sizes:', [x for x in self.possible_setups.keys()])
+            print 'Invalid key size for selected block size!!'
+            print 'Please use one of the following key sizes:' + [str(x) for x in self.possible_setups.keys()]
             raise
 
         # Create Properly Sized bit mask for truncating addition and left shift outputs
@@ -63,16 +70,15 @@ class SimonCipher:
             self.iv_upper = self.iv >> self.word_size
             self.iv_lower = self.iv & self.mod_mask
         except (ValueError, TypeError):
-            print('Invalid IV Value!')
-            print('Please Provide IV as int')
+            print 'Please Provide IV as int'
             raise
 
         # Parse the given Counter and truncate it to the block length
         try:
             self.counter = counter & ((2 ** self.block_size) - 1)
         except (ValueError, TypeError):
-            print('Invalid Counter Value!')
-            print('Please Provide Counter as int')
+            print 'Invalid Counter Value!'
+            print 'Please Provide Counter as int'
             raise
 
         # Check Cipher Mode
@@ -80,16 +86,16 @@ class SimonCipher:
             position = self.__valid_modes.index(mode)
             self.mode = self.__valid_modes[position]
         except ValueError:
-            print('Invalid cipher mode!')
-            print('Please use one of the following block cipher modes:', self.__valid_modes)
+            print 'Invalid cipher mode!'
+            print 'Please use one of the following block cipher modes:' + str(self.__valid_modes)
             raise
 
         # Parse the given key and truncate it to the key length
         try:
             self.key = key & ((2 ** self.key_size) - 1)
         except (ValueError, TypeError):
-            print('Invalid Key Value!')
-            print('Please Provide Key as int')
+            print 'Invalid Key Value!'
+            print 'Please Provide Key as int'
             raise
 
         # Pre-compile key schedule
@@ -171,8 +177,8 @@ class SimonCipher:
             b = (plaintext >> self.word_size) & self.mod_mask
             a = plaintext & self.mod_mask
         except TypeError:
-            print('Invalid plaintext!')
-            print('Please provide plaintext as int')
+            print 'Invalid plaintext!'
+            print 'Please provide plaintext as int'
             raise
 
         if self.mode == 'ECB':
@@ -241,8 +247,8 @@ class SimonCipher:
             b = (ciphertext >> self.word_size) & self.mod_mask
             a = ciphertext & self.mod_mask
         except TypeError:
-            print('Invalid ciphertext!')
-            print('Please provide ciphertext as int')
+            print 'Invalid ciphertext!'
+            print 'Please provide ciphertext as int'
             raise
 
         if self.mode == 'ECB':
@@ -305,14 +311,14 @@ class SimonCipher:
         """
         Completes appropriate number of Simon Fiestel function to encrypt provided words
         Round number is based off of number of elements in key schedule
-        upper_word: int of upper bytes of plaintext input 
+        upper_word: int of upper bytes of plaintext input
                     limited by word size of currently configured cipher
-        lower_word: int of lower bytes of plaintext input 
+        lower_word: int of lower bytes of plaintext input
                     limited by word size of currently configured cipher
-        x,y:        int of Upper and Lower ciphertext words            
-        """    
+        x,y:        int of Upper and Lower ciphertext words
+        """
         x = upper_word
-        y = lower_word 
+        y = lower_word
 
         # Run Encryption Steps For Appropriate Number of Rounds
         for k in self.key_schedule:
@@ -326,24 +332,24 @@ class SimonCipher:
             xor_2 = xor_1 ^ ls_2_x
             y = x
             x = k ^ xor_2
-            
-        return x,y    
 
-    def decrypt_function(self, upper_word, lower_word):    
+        return x,y
+
+    def decrypt_function(self, upper_word, lower_word):
         """
         Completes appropriate number of Simon Fiestel function to decrypt provided words
         Round number is based off of number of elements in key schedule
-        upper_word: int of upper bytes of ciphertext input 
+        upper_word: int of upper bytes of ciphertext input
                     limited by word size of currently configured cipher
-        lower_word: int of lower bytes of ciphertext input 
+        lower_word: int of lower bytes of ciphertext input
                     limited by word size of currently configured cipher
-        x,y:        int of Upper and Lower plaintext words            
+        x,y:        int of Upper and Lower plaintext words
         """
         x = upper_word
         y = lower_word
 
         # Run Encryption Steps For Appropriate Number of Rounds
-        for k in reversed(self.key_schedule): 
+        for k in reversed(self.key_schedule):
              # Generate all circular shifts
             ls_1_x = ((x >> (self.word_size - 1)) + (x << 1)) & self.mod_mask
             ls_8_x = ((x >> (self.word_size - 8)) + (x << 8)) & self.mod_mask
@@ -354,8 +360,8 @@ class SimonCipher:
             xor_2 = xor_1 ^ ls_2_x
             y = x
             x = k ^ xor_2
-            
-        return x,y      
+
+        return x,y
 
 
     def update_iv(self, new_iv):
@@ -365,8 +371,8 @@ class SimonCipher:
                 self.iv_upper = self.iv >> self.word_size
                 self.iv_lower = self.iv & self.mod_mask
             except TypeError:
-                print('Invalid Initialization Vector!')
-                print('Please provide IV as int')
+                print 'Invalid Initialization Vector!'
+                print 'Please provide IV as int'
                 raise
         return self.iv
 
@@ -374,4 +380,4 @@ class SimonCipher:
 if __name__ == "__main__":
     w = SimonCipher(0x1918111009080100, key_size=64, block_size=32)
     t = w.encrypt(0x65656877)
-    print(hex(t))
+    print str(hex(t))

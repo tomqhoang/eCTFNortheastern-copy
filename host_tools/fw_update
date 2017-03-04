@@ -19,18 +19,20 @@ just a zero
 """
 
 import argparse
+import binascii
 import json
 import serial
 import struct
 import sys
-import zlib
 import time
-import binascii
+import zlib
+
 from cStringIO import StringIO
 from intelhex import IntelHex
 
+# Define the 'OK' response message as 0x00
 RESP_OK = b'\x00'
-
+RESP_ERROR = b'\x01'
 
 class Firmware(object):
     """
@@ -40,24 +42,20 @@ class Firmware(object):
     BLOCK_SIZE = 16
 
     def __init__(self, fw_filename):
-        """
-        Initialize an instance of the Simon block cipher.
-        :param fw_filename: Read the firmware
-        :return: None
-        """
         with open(fw_filename, 'rb') as fw_file:
             data = fw_file.read()
             data = zlib.decompress(data)
             data = json.loads(data)
       	    self.version = data['version']
+            self.version_hash = data['version_hash']
             self.size = data['firmware_size']
             self.size = 3600
             self.hex_data = StringIO(data['hex_data'])
             self.tags = data['tags']
+            import pdb; pdb.set_trace()
         self.reader = IntelHex(self.hex_data)
 
     def frames(self):
-        """ Pack the fireware into a frame object and return none. """
         # The address is not sent, so we currently only support a single segment
         # starting at address 0.
         if len(self.reader.segments()) > 1:
@@ -89,6 +87,9 @@ class Firmware(object):
     def close(self):
         self.reader.close()
 
+def response(resp):
+    if resp != RESP_OK:
+        raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
@@ -103,14 +104,16 @@ if __name__ == '__main__':
 
     # Open serial port. Set baudrate to 115200. Set timeout to 2 seconds.
     print('Opening serial port...')
-    ser = serial.Serial(args.port, baudrate=115200, timeout=2)
-    import pdb; pdb.set_trace()
+    ser = serial.Serial(args.port, baudrate=115200, timeout=10)
     # Open our firmware file.
     print('Opening firmware file...')
     firmware = Firmware(args.firmware)
     print('Version: {}'.format(firmware.version))
     print('Size: {} bytes (not including release message)'.format(firmware.size))
 
+    import pdb; pdb.set_trace()
+
+    print firmware.version_hash
     print('Waiting for bootloader to enter update mode...')
     while ser.read(1) != 'U':
         pass
@@ -121,13 +124,23 @@ if __name__ == '__main__':
         print(metadata.encode('hex'))
     ser.write(metadata)
 
-
     page_num = 0
     frame_number = 0
     # Wait for an OK from the bootloader.
     resp = ser.read()
-    if resp != RESP_OK:
-        raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
+    time.sleep(0.1)
+    response(resp)
+
+    # send version hash
+    version_hash = struct.pack('>32s',binascii.unhexlify((firmware.version_hash)))
+    ser.write(version_hash)
+
+    resp = ser.read()
+    if resp == RESP_ERROR:
+        print 'Illegal version'
+        sys.exit()
+    else:
+        response(resp)
 
     for idx, frame in enumerate(firmware.frames()):
         if args.debug:
@@ -142,20 +155,21 @@ if __name__ == '__main__':
 
         time.sleep(0.1)
 
-        if resp != RESP_OK:
-            raise RuntimeError("ERROR: Bootloader responded with {}".format(repr(resp)))
+        response(resp)
 
         if args.debug:
             print("Resp: {}".format(ord(resp)))
         if frame_number == 15:
-            stuff = struct.pack('>32s',binascii.unhexlify((firmware.tags[page_num])))
+            try:
+                stuff = struct.pack('>32s',binascii.unhexlify((firmware.tags[page_num])))
+            except:
+                import pdb; pdb.set_trace()
             ser.write(stuff)
             frame_number = 0
             page_num += 1
             resp = ser.read()
             time.sleep(0.1)
-            if resp != RESP_OK:
-                raise RuntimeError('ERROR:')
+            response(resp)
         else:
             frame_number += 1
 
@@ -163,5 +177,10 @@ if __name__ == '__main__':
     print("Done writing firmware.")
 
     # Send a zero length payload to tell the bootlader to finish writing
-    # it's page.
-    ser.write(struct.pack('>H', 0x0000)
+    # its page.
+    ser.write(struct.pack('>H', 0x0000))
+    resp = ser.read()
+    time.sleep(0.1)
+
+    if resp == 'D':
+        print 'Received confirmation'
