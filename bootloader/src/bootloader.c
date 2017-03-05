@@ -84,7 +84,8 @@ int main(void) {
     }
     else {
         UART1_putchar('B');
-        boot_firmware();
+        test_encryption();
+        //boot_firmware();
     }
 }
 
@@ -107,7 +108,7 @@ void readback(void) {
     size |= ((uint32_t)UART1_getchar()) << 16;
     size |= ((uint32_t)UART1_getchar()) << 8;
  
-   size |= ((uint32_t)UART1_getchar());
+    size |= ((uint32_t)UART1_getchar());
     wdt_reset();
 
     // Read the memory out to UART1
@@ -150,7 +151,7 @@ int store_password(void)
 	secret_buffer[index] = UART1_getchar();
 	index++;
     }
-
+ 
 
     index = 0;
     // Program in page sizes, so switch to array of page size length
@@ -167,7 +168,25 @@ int store_password(void)
     return 1;
 }
 
+void test_encryption(void){
+    uint8_t key[16] = {0};
+    memcpy_PF(key, 0xEF20, 16);
+    uint8_t key1[16] = {0};
 
+    uint8_t round_keys[176] = {0};
+    uint8_t round_keys1[176] = {0};
+
+    uint8_t data[8] = {0};
+    uint8_t data1[8] = {0};
+    uint8_t sha_out[32] = {0};
+    sha256(sha_out, data1, 32);
+    RunEncryptionKeySchedule(key, round_keys);
+    Encrypt(data, round_keys);
+
+    RunEncryptionKeySchedule(key1, round_keys1);
+    Encrypt(data1, round_keys1);
+
+}
 
 /*
  * Load the firmware into flash.
@@ -197,10 +216,12 @@ void load_firmware(void) {
     wdt_enable(WDTO_2S);  // Start the Watchdog Timer
 
     UART1_putchar('U');
+    wdt_reset();
 
     while(!UART1_data_available()) {  // Wait for data
         __asm__ __volatile__("");
     }
+    wdt_reset();
 
     // Get the version
     rcv = UART1_getchar();
@@ -225,6 +246,7 @@ void load_firmware(void) {
 	sig_index++;
     }
 
+    
     data[0] = version << 8;
     data[1] = version;
 
@@ -358,8 +380,8 @@ void load_firmware(void) {
 	    sha256(page_hash, data, hash_length);
             wdt_reset();
 	    Encrypt(page_hash,round_keys);
-            Encrypt(page_hash+8, round_keys);
-            Encrypt(page_hash+16, round_keys);
+        Encrypt(page_hash+8, round_keys);
+        Encrypt(page_hash+16, round_keys);
 	    Encrypt(page_hash+24, round_keys);
 	    if(cmp(page_hash,sig, (int) 32) != 0){
 	    	UART0_putchar('F');
