@@ -1,0 +1,4 @@
+#!/bin/bash
+
+./fw_protect_crypto --infile ../bootloader/flash.hex --outfile update_file --version 5 --message WTF
+./fw_update --port /dev/ttyUSB0 --firmware update_file --debug
