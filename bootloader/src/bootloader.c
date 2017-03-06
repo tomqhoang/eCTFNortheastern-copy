@@ -167,26 +167,36 @@ int store_password(void)
 
     return 1;
 }
-
+/*
+//used this to test signature and version hash were working properly
 void test_encryption(void){
     uint8_t key[16] = {0};
     memcpy_PF(key, 0xEF20, 16);
-    uint8_t key1[16] = {0};
 
     uint8_t round_keys[176] = {0};
-    uint8_t round_keys1[176] = {0};
 
     uint8_t data[8] = {0};
     uint8_t data1[8] = {0};
-    uint8_t sha_out[32] = {0};
-    sha256(sha_out, data1, 32);
+    uint8_t data2[8] = {0};
+    data1[7] = 0xFF;
+    data2[0] = 0xFF;
+
+    uint8_t hash0[8] = {0};
+    hash0[0] = 0xd9;
+    hash0[1] = 0x57;
+    hash0[2] = 0x5d;
+    hash0[3] = 0xf0;
+    hash0[4] = 0x0f;
+    hash0[5] = 0xe9;
+    hash0[6] = 0x56;
+    hash0[7] = 0x27;
+   
     RunEncryptionKeySchedule(key, round_keys);
-    Encrypt(data, round_keys);
-
-    RunEncryptionKeySchedule(key1, round_keys1);
-    Encrypt(data1, round_keys1);
-
+    Encrypt(hash0, round_keys);
+    Encrypt(data1, round_keys);
+    Encrypt(data2, round_keys);
 }
+*/
 
 /*
  * Load the firmware into flash.
@@ -198,7 +208,7 @@ void load_firmware(void) {
     unsigned int data_index = 0;
     unsigned int page = 0;
     uint16_t version = 0;
-    uint16_t old_version = 256; // set to max to ensure accuracy
+    uint16_t old_version = 65535; // set to max to ensure accuracy
     uint16_t size = 0;
     uint8_t key[16] = {0};
     uint8_t round_keys[176] = {0};
@@ -269,6 +279,7 @@ void load_firmware(void) {
 	}
 	
     }
+    wdt_reset();
    
     if(cmp(page_hash, sig, (int) 32) != 0){
         UART0_putchar('F');
@@ -289,6 +300,7 @@ void load_firmware(void) {
             __asm__ __volatile__("");
         }
     }
+
     else if (version != 0) {  // Update version number in EEPROM
         wdt_reset();
         eeprom_update_word(&fw_version, version);
@@ -300,8 +312,9 @@ void load_firmware(void) {
 
 	while(1){
 	    __asm__ __volatile__("");
-	}
+	   }
     }
+
     if (version != 0 && version < eeprom_read_word(&fw_version)) {
         UART1_putchar(ERROR);  // Reject the metadata
 
@@ -309,6 +322,7 @@ void load_firmware(void) {
             __asm__ __volatile__("");
         }
     }
+
     else if (version != 0) {  // Update version number in EEPROM
         wdt_reset();
         eeprom_update_word(&fw_version, version);
@@ -351,10 +365,13 @@ void load_firmware(void) {
             data[data_index] = UART1_getchar();
             data_index += 1;
         }
+
     	frame_counter++;
 	
         // If we filed our page buffer, program it
         if(data_index == SPM_PAGESIZE || frame_length == 0) {
+
+
 	    wdt_reset();
 
 	    if (frame_length == 0)
@@ -370,26 +387,33 @@ void load_firmware(void) {
 
 	    // last frame received
 	    if(frame_length == 0)
-	    {
+	       {
 		hash_length = (frame_counter << 4) << 3;
 	    }
+
 	    else {
-		hash_length = 2048;
+		  hash_length = 2048;
 	    }
+
             ///Need to compare retreived hash, so we compute the encrypted hash
-	    sha256(page_hash, data, hash_length);
-            wdt_reset();
+	    sha256(page_hash, data, hash_length);    
+        wdt_reset();
+
 	    Encrypt(page_hash,round_keys);
         Encrypt(page_hash+8, round_keys);
         Encrypt(page_hash+16, round_keys);
 	    Encrypt(page_hash+24, round_keys);
-	    if(cmp(page_hash,sig, (int) 32) != 0){
+
+	    wdt_reset();
+
+	    if(cmp(page_hash, sig, (int) 32) != 0){
 	    	UART0_putchar('F');
 		while(1){
 		    __asm__ __volatile__("");
 		}		
 	    }
-	    if(cmp(page_hash, sig, (int)32) == 0){
+	    wdt_reset();
+	    if(cmp(page_hash, sig, (int)32) != 0){
 		UART0_putchar('F');
 		while(1){
 	            __asm__ __volatile__("");
