@@ -2,16 +2,14 @@
 
 """
 Memory Readback Tool
-
 A frame consists of four sections:
-1. One byte for the length of the password.
-2. The variable-length password.
-3. Four bytes for the start address.
-4. Four bytes for the number of bytes to read.
-
-  [ 0x01 ]  [ variable ]  [ 0x04 ]    [ 0x04 ]
+1. Thirty two bytes for the password.
+2. Four bytes for the start address.
+3. Four bytes for the number of bytes to read.
+4. Thirty two bytes for SHA256 representation.
+[ 0x20 ]  [ 0x04 ]    [ 0x04 ]   [ 0x20 ]
 -------------------------------------------------
-| PW Length | Password | Start Addr | Num Bytes |
+ Password | Start Addr | Num Bytes | SHA256
 -------------------------------------------------
 """
 import sys
@@ -19,48 +17,110 @@ import json
 import serial
 import struct
 import argparse
+import binascii
 
 from simon import SimonCipher
-from Crypto.Hash import SHA256
+from hashlib import sha256
 
 RESP_OK = b'\x00'
 RESP_ERROR = b'\x01'
 
+# Swaps bytes in a list, see StackOverflow
+def swap_order(d, wsz=4, gsz=2 ):
+        return "".join(["".join([m[i:i+gsz] for i in range(wsz-gsz,-gsz,-gsz)]) for m in [d[i:i+wsz] for i in range(0,len(d),wsz)]])
+
+def encrypt(value, simon):
+    """
+    This is a function that encrypts a value with len(value) 0 to 16
+    to a 16 char encrypted string
+    Param
+    ---------
+    value : int or string
+        value to encrypt
+    simon : SimonCipher
+        Cipher used to encrypt data
+    Returns
+    ----------
+    sting
+        encrypted string
+    """
+    # Encrypt and create the frames to pack
+    value = str(value)
+    if len(value) > 16 and len(value) < 0:
+        print "Not a valid value length"
+        sys.exit(1)
+    print("original val: "+ value.zfill(16))
+    valueSwapped = swap_order(value.zfill(16),wsz=16,gsz=2)
+    print("swapped val: "+ valueSwapped)
+    valueEncrypted = hex(simon.encrypt(int(valueSwapped,16)))[2:-1]  # Encrypt the start address
+    valueFinal = swap_order(valueEncrypted.zfill(16),wsz=16,gsz=2)
+    print("valueFinal : "+ valueFinal)
+    return valueFinal
+
 def construct_request(start_address, num_bytes):
+    """
+    function that constructs request package
+    Param
+    -------
+    start_address: int
+        the start of the memory address
+    num_bytes: int
+        the number of bytes to return
+    Returns:
+    package
+        ready to send package
+    """
     # Read in secret password from file
     SECRET_PASSWORD = ''
     SIMON_KEY = ''
     try:
         with open('secret_configure_output.txt', 'rb') as secret_file:
-	        jsonLine = json.loads(secret_file.read())
-	        SECRET_PASSWORD = jsonLine["password"]
-	        SIMON_KEY = jsonLine["SIMONKEY"]
+            jsonLine = json.loads(secret_file.read())
+            SECRET_PASSWORD = jsonLine["password"]
+            SIMON_KEY = jsonLine["SIMONKEY"]
     except:
         print("File not found")
         pass
 
     # Encrypt and create the frames
-    simon = SimonCipher(int(my_simon_key, 16), key_size=128, block_size=64)
-    frame1 = simon.encrypt(int(SECRET_PASSWORD[0:16], 16))
-    frame2 = simon.encrypt(int(SECRET_PASSWORD[17:32], 16))
-    frame3 = simon.encrypt(int(SECRET_PASSWORD[33:48], 16))
-    frame4 = simon.encrypt(int(SECRET_PASSWORD[49:64], 16))
+    first_keyq = swap_order(SIMON_KEY[0:8], wsz=8, gsz=2)
+    second_keyq = swap_order(SIMON_KEY[8:16], wsz=8, gsz=2)
+    third_keyq = swap_order(SIMON_KEY[16:24], wsz=8, gsz=2)
+    fourth_keyq = swap_order(SIMON_KEY[24:32], wsz=8, gsz=2)
+    #reverse order of chunks
+    swap_key = fourth_keyq + third_keyq + second_keyq + first_keyq
 
-    encrypted_start_address = simon.encrypt(start_address)  # Encrypt the start address
-    encrypted_num_bytes = simon.encrypt(num_bytes)  # Encrypt the number of bytes
+    simon = SimonCipher(int(swap_key, 16), key_size=128, block_size=64)
 
-    # Pack the frames together
-    package = struct.pack('>QQQQQQ', frame1, frame2, frame3, frame4, encrypted_start_address, encrypted_num_bytes) 
-    h = SHA256.new()
-    h.update(package)
-    package_hash = h.hexdigest()  # Generate the package hash digest
-    package = struct.pack('>QQQQQQ64s',  frame1, frame2, frame3, frame4, encrypted_start_address, encrypted_num_byte, package_hash) 
+    frame1 = encrypt(SECRET_PASSWORD[0:16], simon)
+    frame2 = encrypt(SECRET_PASSWORD[16:32], simon)
+    frame3 = encrypt(SECRET_PASSWORD[32:48], simon)
+    frame4 = encrypt(SECRET_PASSWORD[48:], simon)
 
+    frame_start_address = encrypt(start_address, simon)
+    frame_num_bytes = encrypt(num_bytes, simon)
+    finalFrame = frame1 + frame2 + frame3 + frame4 + frame_start_address + frame_num_bytes
+    print("FINAL FRAME : " + finalFrame)
+
+    #Generate hash of final frame
+    #h = SHA256.new()
+    #h.update(finalFrame)
+    final_frame_hash = sha256(finalFrame.decode('hex')).hexdigest().zfill(64)
+
+    print("HASH : " + final_frame_hash)
+    package_hash = final_frame_hash
+    #Big Endian 48byte for final frame and 32byte for hash
+    package = struct.pack('>48s32s',  binascii.unhexlify(finalFrame), package_hash)
     print("Package Hash: " + package_hash)
-    print(str(struct.unpack('>QQQQQQ64s', package)))
+    a, b = struct.unpack('>48s32s', package)
+    print("a : " + binascii.hexlify(a))
+    print("b : " + binascii.hexlify(b))
     return package
 
 if __name__ == '__main__':
+    """
+    Main Function
+    """
     parser = argparse.ArgumentParser(description='Memory Readback Tool')
     parser.add_argument("--port", help="Serial port to send update over.", required=True)
     parser.add_argument("--address", help="First address to read from.", required=True)
