@@ -4,11 +4,13 @@
 Memory Readback Tool
 A frame consists of four sections:
 1. Thirty two bytes for the password.
-2. Four bytes for the start address.
-3. Four bytes for the number of bytes to read.
+2. Eight bytes for the start address.
+3. Eight bytes for the number of bytes to read.
 4. Thirty two bytes for SHA256 representation.
 
-[ 0x20 ]  [ 0x04 ]    [ 0x04 ]   [ 0x20 ]
+Total is 80 bytes
+
+[ 0x20 ]  [ 0x08 ]    [ 0x08 ]   [ 0x20 ]
 -------------------------------------------------
  Password | Start Addr | Num Bytes | SHA256
 -------------------------------------------------
@@ -85,9 +87,6 @@ def construct_request(start_address, num_bytes):
         pass
 
     # Encrypt and create the frames
-<<<<<<< HEAD
-    simon = SimonCipher(int(SIMON_KEY, 16), key_size=128, block_size=64)
-=======
     first_keyq = swap_order(SIMON_KEY[0:8], wsz=8, gsz=2)
     second_keyq = swap_order(SIMON_KEY[8:16], wsz=8, gsz=2)
     third_keyq = swap_order(SIMON_KEY[16:24], wsz=8, gsz=2)
@@ -96,7 +95,6 @@ def construct_request(start_address, num_bytes):
     swap_key = fourth_keyq + third_keyq + second_keyq + first_keyq
 
     simon = SimonCipher(int(swap_key, 16), key_size=128, block_size=64)
->>>>>>> 39208b4618447152d43b2f7014ddf36871883099
 
     frame1 = encrypt(SECRET_PASSWORD[0:16], simon)
     frame2 = encrypt(SECRET_PASSWORD[16:32], simon)
@@ -109,19 +107,12 @@ def construct_request(start_address, num_bytes):
     print("FINAL FRAME : " + finalFrame)
 
     #Generate hash of final frame
-<<<<<<< HEAD
-    h = SHA256.new()
-    h.update(finalFrame)
-    print("HASH : " + h.hexdigest())
-    package_hash = binascii.unhexlify(h.hexdigest())
-=======
     #h = SHA256.new()
     #h.update(finalFrame)
     final_frame_hash = sha256(finalFrame.decode('hex')).hexdigest().zfill(64)
 
     print("HASH : " + final_frame_hash)
     package_hash = final_frame_hash
->>>>>>> 39208b4618447152d43b2f7014ddf36871883099
     #Big Endian 48byte for final frame and 32byte for hash
     package = struct.pack('>48s32s',  binascii.unhexlify(finalFrame), package_hash)
     print("Package Hash: " + package_hash)
