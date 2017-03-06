@@ -1,25 +1,22 @@
 #!/usr/bin/env python
+import binascii
 """
 Firmware Bundle-and-Protect Tool
 """
 import argparse
-import shutil
-import struct
 import json
 import sys
 import zlib
-import pdb
-import binascii
-from hashlib import sha256
+
 from cStringIO import StringIO
+from hashlib import sha256
 from intelhex import IntelHex
-import random, os, struct
-#from Crypto.Cipher import AES
 from simon import SimonCipher
 
+# TODO: fix this comment
 # Swaps bytes in a list, see StackOverflow
-def swap_order(d, wsz=4, gsz=2 ):
-        return "".join(["".join([m[i:i+gsz] for i in range(wsz-gsz,-gsz,-gsz)]) for m in [d[i:i+wsz] for i in range(0,len(d),wsz)]])
+def swap_order(d, wsz=4, gsz=2):
+    return "".join(["".join([m[i:i+gsz] for i in range(wsz-gsz, -gsz, -gsz)]) for m in [d[i:i+wsz] for i in range(0, len(d), wsz)]])
 
 def complement(input_int):
     input_str = (bin(input_int)[2:]).zfill(8)
@@ -32,15 +29,15 @@ def complement(input_int):
     return int(result, 2) + 1
 
 def compute_checksum(intelhex_str):
-	try:
-            checksum_hex = bytearray(intelhex_str.decode('hex'))
-	except:
-	    import pdb; pdb.set_trace()
-        checksum_val = sum(checksum_hex) & 0xFF
-	two_complement  = complement(checksum_val)
-	checksum_bytes = hex(two_complement)
-	checksum_str = checksum_bytes[2:].zfill(2)[-2:]
-	return checksum_str
+    try:
+        checksum_hex = bytearray(intelhex_str.decode('hex'))
+    except:
+        import pdb; pdb.set_trace()
+    checksum_val = sum(checksum_hex) & 0xFF
+    twos_complement = complement(checksum_val)
+    checksum_bytes = hex(twos_complement)
+    checksum_str = checksum_bytes[2:].zfill(2)[-2:]
+    return checksum_str
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
@@ -59,7 +56,6 @@ if __name__ == '__main__':
     # Parse Intel hex file.
     firmware = IntelHex(args.infile)
 
-
     # Get version and size.
     firmware_size = firmware.maxaddr() + 1
     version = int(args.version)
@@ -73,14 +69,24 @@ if __name__ == '__main__':
     # Hex data is in IntelHex format, see wikipedia article on formatting
 
     # Parse the key from secret_configure_output.txt
-    f = open('secret_configure_output.txt', 'r') 
+    f = open('secret_configure_output.txt', 'r')
     secret_config_file_txt = f.read()
     secret_config_json = json.loads(secret_config_file_txt)
     key_string = secret_config_json['SIMONKEY']
+
+    #Need to swap key byte-wise (in 4-byte chunks), then reverse order of chunks
+    first_keyq = swap_order(key_string[0:8], wsz=8, gsz=2)
+    second_keyq = swap_order(key_string[8:16], wsz=8, gsz=2)
+    third_keyq = swap_order(key_string[16:24], wsz=8, gsz=2)
+    fourth_keyq = swap_order(key_string[24:32], wsz=8, gsz=2)
+    swap_key = fourth_keyq + third_keyq + second_keyq + first_keyq
+
+    print "swap_key" + swap_key
+    
     key = int(key_string, 16)
 
     #create simon cipher, key goes in here in 0xhex, or int('hex-string-here',16)
-    my_simon = SimonCipher(key,key_size=128, block_size=64)
+    my_simon = SimonCipher(int(swap_key,16), key_size=128, block_size=64)
 
     # split each line
     byline = hex_data.splitlines()
@@ -101,8 +107,8 @@ if __name__ == '__main__':
     # for each line with data
     for line in byline_data:
         # read numBytes in line
-        numBytes = int(line[1:3],16);
-        print numBytes
+        numBytes = int(line[1:3], 16)
+        #print numBytes
         # get data hex values
         data = line[9:9+numBytes*2]
         total_flash_data = total_flash_data + data
@@ -112,19 +118,19 @@ if __name__ == '__main__':
     total_flash_list = [total_flash_data[i:i + 32] for i in range(0, len(total_flash_data), 32)]
     import pdb; pdb.set_trace()
 
-    for j, data in enumerate(total_flash_list):    
+    for j, data in enumerate(total_flash_list):
         if len(data) < 32:
             data = data.ljust(32, '0')
         elif len(data) > 32:
-            print "Not a valid data length" 
+            print "Not a valid data length"
             sys.exit()
         # encrypt the 16B using simon
-        data1 = swap_order(data[0:16],wsz=16,gsz=2)
-        data2 = swap_order(data[16:],wsz=16,gsz=2)
-        encrypted1 = hex(my_simon.encrypt(int(data1,16)))[2:-1]
-        encrypted2 = hex(my_simon.encrypt(int(data2,16)))[2:-1]
-        swapped1 = swap_order(encrypted1.zfill(16),wsz = 16, gsz=2)
-        swapped2 = swap_order(encrypted2.zfill(16), wsz = 16, gsz = 2)
+        data1 = swap_order(data[0:16], wsz=16, gsz=2)
+        data2 = swap_order(data[16:], wsz=16, gsz=2)
+        encrypted1 = hex(my_simon.encrypt(int(data1, 16)))[2:-1]
+        encrypted2 = hex(my_simon.encrypt(int(data2, 16)))[2:-1]
+        swapped1 = swap_order(encrypted1.zfill(16), wsz=16, gsz=2)
+        swapped2 = swap_order(encrypted2.zfill(16), wsz=16, gsz=2)
         encryptedData = swapped1 + swapped2
         current_address = hex(int(first_address, 16) + 16 * j)[2:]
 
@@ -152,33 +158,36 @@ if __name__ == '__main__':
     hash_locals = []
 
     for input_data in hash_input:
-         hash_local = sha256(input_data.decode('hex')).hexdigest().zfill(64)
-         hash_locals.append(hash_local)
-         first_q = swap_order(hash_local[0:16], wsz=16, gsz=2)
-         second_q = swap_order(hash_local[16:32], wsz=16, gsz=2)
-         third_q = swap_order(hash_local[32:48], wsz=16, gsz=2)
-         fourth_q = swap_order(hash_local[48:], wsz=16, gsz=2)
-         fq = hex(my_simon.encrypt(int(first_q, 16)))[2:-1].zfill(16)
-         sq = hex(my_simon.encrypt(int(second_q, 16)))[2:-1].zfill(16)
-         tq = hex(my_simon.encrypt(int(third_q, 16)))[2:-1].zfill(16)
-         foq = hex(my_simon.encrypt(int(fourth_q, 16)))[2:-1].zfill(16)
-         fs = swap_order(fq, wsz=16, gsz=2)
-         ss = swap_order(sq, wsz=16, gsz=2)
-         ts = swap_order(tq, wsz=16, gsz=2)
-         fos = swap_order(foq, wsz=16, gsz=2)
-         tags.append(fs + ss + ts + fos)
+        hash_local = sha256(input_data.decode('hex')).hexdigest().zfill(64)
+        hash_locals.append(hash_local)
+        first_q = swap_order(hash_local[0:16], wsz=16, gsz=2)
+        second_q = swap_order(hash_local[16:32], wsz=16, gsz=2)
+        third_q = swap_order(hash_local[32:48], wsz=16, gsz=2)
+        fourth_q = swap_order(hash_local[48:], wsz=16, gsz=2)
+        fq = hex(my_simon.encrypt(int(first_q,16)))[2:-1].zfill(16)
+        sq = hex(my_simon.encrypt(int(second_q,16)))[2:-1].zfill(16)
+        tq = hex(my_simon.encrypt(int(third_q,16)))[2:-1].zfill(16)
+        foq = hex(my_simon.encrypt(int(fourth_q,16)))[2:-1].zfill(16)
+        fs = swap_order(fq, wsz=16, gsz=2)
+        ss = swap_order(sq, wsz=16, gsz=2)
+        ts = swap_order(tq, wsz=16, gsz=2)
+        fos = swap_order(foq, wsz=16, gsz=2)
+
+        tags.append(fs + ss + ts + fos)
 
     # Sign Result
     # Save as Version-Bytes
     version_hash_input = (hex(version)[2:]).zfill(4) + (hex(key)[2:-1]).zfill(32)
     import pdb; pdb.set_trace()
     version_hash = sha256(version_hash_input.decode('hex')).hexdigest().zfill(64)
-   
+    print 'Hash local: ' + hash_locals[0]
+    print 'Tag: '+ tags[0]
+
     # Encode the data as json and write to outfile.
     data = {
         'firmware_size' : firmware_size,
         'version_hash' : version_hash,
-	'version' : version,
+	    'version' : version,
         'hex_data' : encrypted_hex_data,
         'tags' : tags
     }

@@ -10,7 +10,6 @@ copying the build outputs into the host tools directory for programming.
 import argparse
 import json
 import os
-import shutil
 import subprocess
 import sys
 
@@ -18,20 +17,20 @@ from Crypto import Random
 from intelhex import IntelHex
 
 # Define the directory where the bootloader lives.
-BOOTLOADER_DIR = os.path.abspath(os.path.join(os.path.dirname( __file__ ), '..', 'bootloader'))
+BOOTLOADER_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'bootloader'))
 
 def generate_readback_password():
     """
     Generate secret password for readback tool and store to secret file.
     """
-    pw = Random.new().read(32).encode('hex')
+    random_password = Random.new().read(32).encode('hex')
 
     # Write password to secret file in this directory
     with open('secret_build_output.txt', 'wb+') as secret_build_output:
-        data = { 'password' : pw }
+        data = {'password' : random_password}
         data = json.dumps(data)
         secret_build_output.write(data)
-    return pw
+    return random_password
 
 def make(password=None):
     """
@@ -41,11 +40,12 @@ def make(password=None):
         status = subprocess.call('make PASSWORD="%s"' % password, cwd=BOOTLOADER_DIR, shell=True)
     else:
         status = subprocess.call('make')
-    return (status == 0)  # Return True if build was successful
+    # return True if build was successful
+    return status == 0
 
 def clean():
     subprocess.call('make clean', cwd=BOOTLOADER_DIR, shell=True)
-    # Remove 'secret_build_output.txt' if it exists.
+    # Remove 'secret_build_output.txt' if it exists
     [os.remove(f) if os.path.exists(f) else None for f in ['secret_build_output.txt']]
 
 def write_fuse_file(fuse_name, fuse_value):
@@ -66,8 +66,8 @@ if __name__ == '__main__':
     if args.clean == True:
         clean()
     else:
-        password = generate_readback_password()
-        if not make(password=password):
+        random_password = generate_readback_password()
+        if not make(password=random_password):
             print "ERROR: Failed to compile bootloader."
             sys.exit(1)
         write_fuse_file('lfuse', 0xff)
