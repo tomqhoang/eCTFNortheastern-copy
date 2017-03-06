@@ -84,7 +84,7 @@ int main(void) {
     }
     else {
         UART1_putchar('B');
-        test_encryption();
+        //test_encryption();
         //boot_firmware();
     }
 }
