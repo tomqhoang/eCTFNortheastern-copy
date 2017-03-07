@@ -136,7 +136,7 @@ void readback(void) {
     uint8_t hashed_password[32] = {0};
     wdt_reset();
 
-    memcpy_PF(key, 0xEF20, 16); //copy key from memory
+    memcpy_PF(key, 0x1DF20, 16); //copy key from memory
     wdt_reset();
 
     RunEncryptionKeySchedule(key, round_keys); //copy key from memory
@@ -150,7 +150,7 @@ void readback(void) {
 
     wdt_reset();
 
-    memcpy_PF(hashed_password, 0xEF00, 32); //copy key from memory
+    memcpy_PF(hashed_password, 0x1DF00, 32); //copy key from memory
     wdt_reset();
 
 
@@ -257,8 +257,8 @@ int __attribute__((optimize("O0"))) store_password(void)
 	    index++;
     }
 
-    // store as (hashed password | key) in page that starts at 0xEF00
-    program_flash((uint32_t) 0xEF00, sha_buffer);
+    // store as (hashed password | key) in page that starts at 0x1DF00
+    program_flash((uint32_t) 0x1DF00, sha_buffer);
 
     return 1;
 }
@@ -266,7 +266,7 @@ int __attribute__((optimize("O0"))) store_password(void)
 //used this to test signature and version hash were working properly
 void test_encryption(void){
     uint8_t key[16] = {0};
-    memcpy_PF(key, 0xEF20, 16);
+    memcpy_PF(key, 0x1F20, 16);
 
     uint8_t round_keys[176] = {0};
 
@@ -315,7 +315,7 @@ void load_firmware(void) {
     uint16_t segment_index = 0;
     
     // copy key
-    memcpy_PF(key, 0xEF20, 16);
+    memcpy_PF(key, 0x1DF20, 16);
     RunEncryptionKeySchedule(key, round_keys);
 
     wdt_enable(WDTO_2S);  // Start the Watchdog Timer
