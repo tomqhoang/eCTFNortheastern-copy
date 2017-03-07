@@ -92,10 +92,11 @@ if __name__ == '__main__':
     byline = hex_data.splitlines()
 
     # remove first two lines from encryption because there is no data there
-    encrypted_byline = byline[0:2]
+    #encrypted_byline = byline[0:2]
+    encrypted_byline = []
 
     # only use data lines
-    byline_data = byline[2:-1]
+    byline_data = byline[:-1]
     import pdb; pdb.set_trace()
 
     # for hash output
