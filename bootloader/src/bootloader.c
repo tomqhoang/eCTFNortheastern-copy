@@ -8,7 +8,8 @@
  * Port B Pin 3 (PB3 on the protostack board) is pulled to ground, then the 
  * bootloader will enter flash memory readback mode.
  * 
- * If PB4 is pulled to ground, then the bootloader will enter store password mode.  
+ * If no password/key has been added by the configure tool, then store_password
+ * mode will be enabled  
  * 
  * If NEITHER of these pins are pulled to ground, then the bootloader will 
  * execute the application from flash.
@@ -66,7 +67,7 @@ int main(void) {
     wdt_reset();
 
     DDRB &= ~((1 << PB2) | (1 << PB3));  // Configure Port B Pins 2 and 3 as inputs
-    PORTB |= (1 << PB2) | (1 << PB3) | (1 << PB4);  // Enable pullups - give port time to settle
+    PORTB |= (1 << PB2) | (1 << PB3);  // Enable pullups - give port time to settle
 
     // If jumper is present on pin 2, load new firmware
     if(eeprom_read_byte(&key_stored) == 0){
@@ -123,7 +124,7 @@ void readback(void) {
         } 
     }
     wdt_reset();
-    // Compiled out at O1
+
     if(cmp(hash_results, readback_input_buffer + 48, (int) 32) != 0){
         UART0_putchar('F');
         while(1){
@@ -132,7 +133,7 @@ void readback(void) {
     }
 
     uint8_t key[16] = {0};
-    uint8_t round_keys[176] = {0};
+    uint8_t round_keys[176] = {0}; //populated by key_scheduler
     uint8_t hashed_password[32] = {0};
     wdt_reset();
 
@@ -143,7 +144,7 @@ void readback(void) {
     wdt_reset();
 
     //Start password check process by decrypting password from buffer, in place
-    for(uint8_t i = 0; i < 4; i++){
+    for(uint8_t i = 0; i < 6; i++){
         wdt_reset();
         Decrypt(readback_input_buffer + i*8, round_keys);
     }
@@ -171,47 +172,89 @@ void readback(void) {
             __asm__ __volatile__("");
         }
     }
-
-    Decrypt(readback_input_buffer + 32, round_keys); //decrypt start address
-    Decrypt(readback_input_buffer + 40, round_keys); //decrypt size
-
-    uint32_t size = 0;
+    //TODO: VOLATILE REMOVE
     uint32_t start_addr = 0;
+    uint32_t size = 0;
+    
+    //converts start_addr buffer entries into one 32-bit unsigned int
+    start_addr = ((uint32_t) readback_input_buffer[36]) << 24;
+    start_addr |= ((uint32_t) readback_input_buffer[37]) << 16; 
+    start_addr |= ((uint32_t) readback_input_buffer[38]) << 8; 
+    start_addr |= ((uint32_t) readback_input_buffer[39]); 
 
-    for(uint8_t i = 0; i < 8; i++){
-        wdt_reset();
-        size = size + (readback_input_buffer[40 - i] << i*8);
-    }
+    //converts size buffer entries into one 32-bit unsigned int
+    size = ((uint32_t) readback_input_buffer[44]) << 24;
+    size |= ((uint32_t) readback_input_buffer[45]) << 16; 
+    size |= ((uint32_t) readback_input_buffer[46]) << 8; 
+    size |= ((uint32_t) readback_input_buffer[47]);
 
-    for(uint8_t i = 0; i < 8; i++){
-        wdt_reset();
-        start_addr = start_addr + (readback_input_buffer[48 - i] << i*8);
-    }
-
-    if(start_addr > 0xFFFF){
+    //checks if start_addr exists
+    if(start_addr > 0x1FFFF){
         UART0_putchar('F');
          while(1) __asm__ __volatile__("");
     }
 
-    if(start_addr + size > 0xFFFF){
+    //checks if memory sector being read exists entirely in memory
+    if(start_addr + size > 0x1FFFF){
         UART0_putchar('F');
          while(1) __asm__ __volatile__("");
     }
 
-    // Read the memory out to UART1
+    UART1_putchar('R');
+
+    uint8_t simon_buffer[8] = {0};
+    uint8_t encrypt_index = 0; 
+    uint8_t leftover_index = 0;
+
+    // Read the memory (in encrypted form) out to UART1
     for (uint32_t addr = start_addr; addr < start_addr + size; ++addr) {
-        unsigned char byte = pgm_read_byte_far(addr);  // Read a byte from flash
         wdt_reset();
+        simon_buffer[encrypt_index] = pgm_read_byte_far(addr);  // Read a byte from flash
+        encrypt_index++;
 
-        UART1_putchar(byte);  // Write the byte to UART1 
+        //check if on last byte to be read, and the simon buffer is not completely full
+        if((addr == start_addr + size - 1) && (encrypt_index != 0)){
+            wdt_reset();
+            leftover_index = encrypt_index;
+            encrypt_index = 0;
+        
+            //need to replace bytes that were previously there from previous operation
+            while(leftover_index < 8){
+                wdt_reset();
+                simon_buffer[leftover_index] = 0;
+                leftover_index++;
+            }
+            leftover_index = 0;
+            encrypt_index = 8;
+        }
+
+        //if simon buffer is full, then encrypt and send bytes to host tool
+        if(encrypt_index == 8){
+            wdt_reset();
+            encrypt_index = 0;
+            Encrypt(simon_buffer, round_keys); //encrypted buffer
+
+            while(encrypt_index < 8){
+                UART1_putchar(simon_buffer[encrypt_index]);
+                encrypt_index++;
+            }
+            encrypt_index = 0;
+        }
         wdt_reset();
     }
+#if 1
+            // Write debugging messages of message length (bytes) to UART0.
+            UART0_putchar('S');
+            UART0_putchar(size>>16);
+            UART0_putchar(size>>8);
+            UART0_putchar(size);
+#endif
 
     while(1) __asm__ __volatile__("");  // Wait for watchdog timer to reset.
 }
 
-/* Store hashed password and key in first page of flash */
 
+/* Store hashed password and key in first page of flash */
 int __attribute__((optimize("O0"))) store_password(void)
 {
     wdt_enable(WDTO_2S);  // Start the Watchdog Timer
@@ -252,7 +295,7 @@ int __attribute__((optimize("O0"))) store_password(void)
     // Program in page sizes, so switch to array of page size length
     for (i = 0; i < 48; i++)
     {
-	wdt_reset();
+	   wdt_reset();
         sha_buffer[index] = secret_buffer[index];
 	    index++;
     }
@@ -294,7 +337,8 @@ void test_encryption(void){
 */
 
 /*
- * Load the firmware into flash.
+ * Load the firmware into flash. Uses SIMON for encryption/decryption, SHA256 for hashing
+ * Has frame handling code to ensure the proper frame edge cases are properly handled.
  */
 void load_firmware(void) {
     int frame_length = 0;
@@ -367,13 +411,14 @@ void load_firmware(void) {
 
     // compare encrypted hash with received
     sha256(page_hash, (uint8_t *) data, (uint32_t) 144);
+
     if(cmp(page_hash, sig, (int) 32) != 0){
-	   UART0_putchar('F');
-	while(1){
-	    __asm__ __volatile__("");
-	}
-	
+	    UART0_putchar('F');
+	    while(1){
+	       __asm__ __volatile__("");
+        }
     }
+
     wdt_reset();
    
     if(cmp(page_hash, sig, (int) 32) != 0){
@@ -466,73 +511,74 @@ void load_firmware(void) {
         // If we filed our page buffer, program it
         if(data_index == SPM_PAGESIZE || frame_length == 0) {
 
+	        wdt_reset();
 
-	    wdt_reset();
-
-	    if (frame_length == 0)
-		UART1_putchar('D');
+	        if (frame_length == 0)
+		       UART1_putchar('D');
 
             UART1_putchar(OK);
-	    sig_index = 0;
-	    for(int i = 0; i < 32; i++){
-	    	wdt_reset();
-		sig[sig_index] = UART1_getchar();
-		sig_index++;
-	    }
+	        sig_index = 0;
 
-	    // last frame received
-	    if(frame_length == 0)
-	       {
-		hash_length = (frame_counter << 4) << 3;
-	    }
+            //grab signature from UART1
+	        for(int i = 0; i < 32; i++){
+	            wdt_reset();
+		        sig[sig_index] = UART1_getchar();
+		        sig_index++;
+	        }
 
-	    else {
-		  hash_length = 2048;
-	    }
+	        // last frame received
+	        if(frame_length == 0){
+		        hash_length = (frame_counter << 4) << 3;
+	        }
+            else {
+		         hash_length = 2048;
+	        }
 
-            ///Need to compare retreived hash, so we compute the encrypted hash
-	    sha256(page_hash, data, hash_length);    
-        wdt_reset();
+            ///Need to compare retreived signature, so we compute the encrypted hash
+	        sha256(page_hash, data, hash_length);    
+            wdt_reset();
 
-	    Encrypt(page_hash,round_keys);
-        Encrypt(page_hash+8, round_keys);
-        Encrypt(page_hash+16, round_keys);
-	    Encrypt(page_hash+24, round_keys);
+	        Encrypt(page_hash,round_keys);
+            Encrypt(page_hash+8, round_keys);
+            Encrypt(page_hash+16, round_keys);
+	        Encrypt(page_hash+24, round_keys);
 
-	    wdt_reset();
+	        wdt_reset();
 
-	    if(cmp(page_hash, sig, (int) 32) != 0){
-	    	UART0_putchar('F');
-		while(1){
-		    __asm__ __volatile__("");
-		}		
-	    }
-	    wdt_reset();
-	    if(cmp(page_hash, sig, (int)32) != 0){
-		UART0_putchar('F');
-		while(1){
-	            __asm__ __volatile__("");
-		}
-	    }
+	        if(cmp(page_hash, sig, (int) 32) != 0){
+	    	    UART0_putchar('F');
+		        while(1){
+		           __asm__ __volatile__("");
+		        }		
+	        }
 
-	    wdt_reset();
-	    
-	    
-	    max_segments = (frame_counter) * 2; 
-	    //decrypted in SIMON block sizes		
-	    for(uint8_t i = 0; i < max_segments; i++){
-		wdt_reset();
-		Decrypt(data + i*8, round_keys);
-	    }
+	        wdt_reset();
+	        if(cmp(page_hash, sig, (int)32) != 0){
+		        UART0_putchar('F');
+		        while(1){
+	               __asm__ __volatile__("");
+		        }
+	       }
 
+    	    wdt_reset();
+    	    
+    	    
+    	    max_segments = (frame_counter) * 2; 
+    	    //decrypted in SIMON block sizes		
+    	    for(uint8_t i = 0; i < max_segments; i++){
+    		    wdt_reset();
+    		    Decrypt(data + i*8, round_keys);
+    	    }
 
-	    segment_index = max_segments << 3;
-	    while (segment_index < 256)
-	    {
-		wdt_reset();
-		data[segment_index] = 0;
-		segment_index++;
-	    }
+            //zero-fill last page if needed
+    	    segment_index = max_segments << 3;
+    	    while (segment_index < 256)
+    	    {
+    		    wdt_reset();
+    		    data[segment_index] = 0;
+    		    segment_index++;
+    	    }
+
 
             program_flash(page, data);
             page += SPM_PAGESIZE;
