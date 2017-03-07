@@ -3,13 +3,40 @@
 This repository contains Northeastern University ECE's reference system for MITRE's 2017 
 [Embedded System CTF](http://mitrecyberacademy.org/competitions/embedded/). To centralize information between our repository and MITRE's, we consolidated setup details to this document.
 
+# High Level Design
+Overall, we followed the format provided by the MITRE insecure example. We used the same 
+files for our host tools and bootloader, with the exception of a loading script called 
+`loadboot`, which is useful for quickly writing code to the device. 
+
+1. `Encryption and Decryption`
+   In order to encrypt and decrypt our data, we made use of Simon, a lightweight 
+   block cipher designed for hardware applications. It was publically released by 
+   the NSA in 2013. Click [here](https://en.wikipedia.org/wiki/Simon_(cipher)) for more information about Simon.
+   On the host_tools end, we used [this](https://github.com/inmcm/Simon_Speck_Ciphers/tree/master/Python) Python 
+   implementation, and on the bootloader end, we used [this](https://www.cryptolux.org/index.php/FELICS_Block_Ciphers_Detailed_Results#AVR)
+   C implementation from FELICS.
+   * Used in the host tools (fw_protect and readback) and the bootloader functions (load_firmware and readback)
+   * Compatibility between the python variant and AVR C Simon is *non-trivial*. This requires understanding of how data is represented and conversion betweend data types between the Python and C side. Please read the source code of fw_bundle and load_firmware (in
+   bootloader.c) for the complexity involved with this porting implementation through the processing of encrypted firmware frames.
+
+2. `Integrity`
+   For authentication, we used [SHA256](https://en.wikipedia.org/wiki/SHA-2), the current 
+   standard used by the NSA. It is used to integrity-check the encrypted data by preventing a
+   malicious user from editing the encrypted data being sent to the microcontroller. In 
+   addition, since the hash can be encrypted with a secret key, it prevents a malicious user
+   from creating their own hash that will be authenticated by the device. 
+   On the host_tools end, we used the [hashlib](https://docs.python.org/2/library/hashlib.html) Python mode, 
+   and on the bootloader, we used the [AVR Crypto-lib](https://github.com/MattiasBuelens/avr-crypto-lib) repository. 
+   * Used in fw_protect and readback host tools and the bootloader functions (load firmware and readback)
+
+
 # Getting Started
 Before you can use the bootloader, you'll first need to get up and running
 with our common development environment. All Northeastern development and testing was 
 on a vagrant provisioned virtual machine.
 
-## Prerequisites
-Note: if you already have one of these dependencies installed you should not
+## (MITRE COPIED) Prerequisites 
+Note: if you already have one of these dependencies installed, you should not
 need to install it again.
 
 1. Download and install VirtualBox here:
@@ -26,7 +53,7 @@ need to install it again.
 Once you have downloaded the build environment, change into its direcotry in 
 your shell and follow these steps to start up your VM:
 
-1. Copy `Vagrantfile.local.example` to `Vagrantfile.local`.
+1. Copy `Vagrantfile.team` to `Vagrantfile.local`.
 2. Open `Vagrantfile.local` and ensure that the configurations make sense for
    your system configuration.
 3. Run `vagrant up` in the shell/command line of your choice to download the VM
@@ -41,34 +68,12 @@ to the VM when it is running, but if they are not you should be able to attach
 them through the virtualbox GUI. If you run into problems with USB that you
 cannot resolve on your own, please open an issue on this repo. 
 
-## Connecting the Boards
+## (MITRE COPIED) Connecting the Boards
 To connect the AVR Dragon to the Protostack board, use the included ribbon cable
 to connect the 6-pin ISP header on the AVR Dragon to the ISP10 header on the
 protostack board.  The notch on the connecting cable should face towards pin-1
 on the Dragon. Do not use the 10-pin connector on the Dragon -- this is for JTAG
 and is not needed to get up and running.
-
-# High Level Design
-Overall, we followed the format provided by the MITRE insecure example. We used the same 
-files for our host tools and bootloader, with the exception of a loading script called 
-`loadboot`, which is useful for quickly writing code to the device. 
-
-1. `Encryption and Decryption`
-   In order to encrypt and decrypt our data, we made use of Simon, a lightweight 
-   block cipher designed for hardware applications. It was publically released by 
-   the NSA in 2013. Click [here](https://en.wikipedia.org/wiki/Simon_(cipher)) for more information about Simon.
-   On the host_tools end, we used [this](https://github.com/inmcm/Simon_Speck_Ciphers/tree/master/Python) Python 
-   implementation, and on the bootloader end, we used [this](https://www.cryptolux.org/index.php/FELICS_Block_Ciphers_Detailed_Results#AVR) 
-   C implementation from FELICS.
-
-2. `Integrity`
-   For authentication, we used [SHA256](https://en.wikipedia.org/wiki/SHA-2), the current 
-   standard used by the NSA. It is used to authenticate the encrypted data by preventing a
-   malicious user from editing the encrypted data being sent to the microcontroller. In 
-   addition, since the hash is encrypted with a secret key, it prevents a malicious user
-   from creating their own hash that will be authenticated by the device. 
-   On the host_tools end, we used the [hashlib](https://docs.python.org/2/library/hashlib.html) Python mode, 
-   and on the bootloader, we used the [AVR Crypto-lib](https://github.com/MattiasBuelens/avr-crypto-lib) repository. 
 
 # Provided Files
 1. `Vagrantfile`
@@ -90,7 +95,7 @@ host-tool-specific instructions and help.
 The host tools are intended to be run from our VM. They communicate with the
 bootloader over UART1 on the AVR.
 
-## How to Run the Tools
+## (MITRE-COPIED) How to Run the Tools
 All of the example host tools are written in Python, but do not have .py file
 extensions. In Linux (e.g., on your vagrant VM) you should be able to run them
 as a regular program/script (i.e., `./bl_build`). If that isn't working you may
@@ -100,14 +105,14 @@ need to run them an argument to the python interpreter (i.e.,
 All tools that take arguments should have a help flag (`-h`) that will provide
 descriptions.
 
-## Checking Code Size 
+## (MITRE-COPIED) Checking Code Size 
 To check the size of your bootloader code you can run:
 `avr-size flash.hex`
 
 Also, the file `bootloader.map` is now created when the firmware is created. It 
 provides a description on where functions are located in program memory. 
 
-## Programming the Board
+## (MITRE-COPIED) Programming the Board
 The following command should program your board with the output from your
 `bl_build` tool:
 
@@ -127,7 +132,7 @@ The AVR dragon may occasionally end up in a state where it no longer responds to
 avrdude. If this happens, the problem can be resolved by disconnecting and
 reconnecting the dragon's USB cable.
 
-## Makefile, Flashing and Debugging
+## (MITRE-COPIED) Makefile, Flashing and Debugging
 
 The Makefile contains targets for both flashing and debugging the AVR as well as using the JTAG 
 functionality of the Dragon. There is a number of caveats to getting this to
