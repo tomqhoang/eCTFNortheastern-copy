@@ -52,12 +52,12 @@ def encrypt(value, simon):
     if len(value) > 16 and len(value) < 0:
         print "Not a valid value length"
         sys.exit(1)
-    print("original val: "+ value.zfill(16))
+    #print("original val: "+ value.zfill(16))
     valueSwapped = swap_order(value.zfill(16),wsz=16,gsz=2)
-    print("swapped val: "+ valueSwapped)
+    #print("swapped val: "+ valueSwapped)
     valueEncrypted = hex(simon.encrypt(int(valueSwapped,16)))[2:-1]  # Encrypt the start address
     valueFinal = swap_order(valueEncrypted.zfill(16),wsz=16,gsz=2)
-    print("valueFinal : "+ valueFinal)
+    #print("valueFinal : "+ valueFinal)
     return valueFinal
 
 def construct_request(start_address, num_bytes):
@@ -78,9 +78,10 @@ def construct_request(start_address, num_bytes):
     SIMON_KEY = ''
     try:
         with open('secret_configure_output.txt', 'rb') as secret_file:
-            jsonLine = json.loads(secret_file.read())
-            SECRET_PASSWORD = jsonLine["password"]
-            SIMON_KEY = jsonLine["SIMONKEY"]
+	    # Load the secret file into a python dictionary
+            jsonDict = json.loads(secret_file.read())
+            SECRET_PASSWORD = jsonDict["password"]
+            SIMON_KEY = jsonDict["SIMONKEY"]
     except:
         print("File not found")
         pass
@@ -90,34 +91,40 @@ def construct_request(start_address, num_bytes):
     second_keyq = swap_order(SIMON_KEY[8:16], wsz=8, gsz=2)
     third_keyq = swap_order(SIMON_KEY[16:24], wsz=8, gsz=2)
     fourth_keyq = swap_order(SIMON_KEY[24:32], wsz=8, gsz=2)
-    #reverse order of chunks
+    # Reverse order of chunks to play nice with simon library
     swap_key = fourth_keyq + third_keyq + second_keyq + first_keyq
 
+    # Create a SimonCipher object with a key, keysize, and blocksize
     simon = SimonCipher(int(swap_key, 16), key_size=128, block_size=64)
 
-    frame1 = encrypt(SECRET_PASSWORD[0:16], simon)
-    frame2 = encrypt(SECRET_PASSWORD[16:32], simon)
-    frame3 = encrypt(SECRET_PASSWORD[32:48], simon)
-    frame4 = encrypt(SECRET_PASSWORD[48:], simon)
+    # Encrypt frame by frame using simon
+    block1 = encrypt(SECRET_PASSWORD[0:16], simon)
+    block2 = encrypt(SECRET_PASSWORD[16:32], simon)
+    block3 = encrypt(SECRET_PASSWORD[32:48], simon)
+    block4 = encrypt(SECRET_PASSWORD[48:], simon)
 
-    frame_start_address = encrypt(start_address, simon)
-    frame_num_bytes = encrypt(num_bytes, simon)
-    finalFrame = frame1 + frame2 + frame3 + frame4 + frame_start_address + frame_num_bytes
-    print("FINAL FRAME : " + finalFrame)
+    # Encrypt the initial memory location
+    memory_location = encrypt(start_address, simon)
+    # Encrypt the number of bytes that we want to read
+    length_data = encrypt(num_bytes, simon)
+    # Combine the 4 sections, start address, and number of bytes into one package
+    complete_package = block1 + block2 + block3 + block4 + memory_location + length_data
+    print("FINAL FRAME : " + complete_package)
+    print("Final frame length: " + str(len(complete_package)))
+    print("Frame type: " + str(type(complete_package)))
 
-    #Generate hash of final frame
-    #h = SHA256.new()
-    #h.update(finalFrame)
-    final_frame_hash = sha256(finalFrame.decode('hex')).hexdigest().zfill(64)
+    # Generate hash of final packaged data
+    final_package_hash = sha256(complete_package.decode('hex')).hexdigest().zfill(64)
 
-    print("HASH : " + final_frame_hash)
-    package_hash = final_frame_hash
+    print("HASH : " + final_package_hash)
+    print("Hash type: " + str(type(final_package_hash)))
+    package_hash = final_package_hash
     #Big Endian 48byte for final frame and 32byte for hash
-    package = struct.pack('>48s32s',  binascii.unhexlify(finalFrame), package_hash)
+    package = struct.pack('>48s32s',  binascii.unhexlify(complete_package), binascii.unhexlify(package_hash))
     print("Package Hash: " + package_hash)
     a, b = struct.unpack('>48s32s', package)
-    print("a : " + binascii.hexlify(a))
-    print("b : " + binascii.hexlify(b))
+    print("password, start address, num_bytes : " + binascii.hexlify(a))
+    print("SHA : " + binascii.hexlify(b))
     return package
 
 if __name__ == '__main__':
