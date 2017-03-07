@@ -48,7 +48,7 @@
 #define OK ((unsigned char) 0x00)
 #define ERROR ((unsigned char) 0x01)
 
-void test_encryption(void);
+//void test_encryption(void);
 void program_flash(uint32_t page_address, unsigned char *data);
 void load_firmware(void);
 void boot_firmware(void);
@@ -61,26 +61,23 @@ uint16_t fw_version EEMEM = 0;
 uint8_t key_stored EEMEM = 0;
 
 int main(void) {
-    UART1_init();  // Init UART1 (virtual com port)
+    UART1_init();  // Init UART1 (virtual com p`ort)
     UART0_init();  // Init UART0
     wdt_reset();
 
-    DDRB &= ~((1 << PB2) | (1 << PB3) | (1 << PB4));  // Configure Port B Pins 2 and 3 as inputs
+    DDRB &= ~((1 << PB2) | (1 << PB3));  // Configure Port B Pins 2 and 3 as inputs
     PORTB |= (1 << PB2) | (1 << PB3) | (1 << PB4);  // Enable pullups - give port time to settle
 
     // If jumper is present on pin 2, load new firmware
-    if (!(PINB & (1 << PB2))) {
+    if(eeprom_read_byte(&key_stored) == 0){
+        eeprom_update_byte(&key_stored, store_password());
+    }
+    else if (!(PINB & (1 << PB2))) {
         load_firmware();
     }
     else if (!(PINB & (1 << PB3))) {
         UART1_putchar('R');
         readback();
-    }
-    else if (!(PINB & (1 << PB4)))
-    {
-	if(eeprom_read_byte(&key_stored) == 0){
-	    eeprom_update_byte(&key_stored, store_password());
-    	}
     }
     else {
         UART1_putchar('B');
@@ -91,25 +88,115 @@ int main(void) {
 
 
 /*
- * Interface with host readback tool.
+ * Interface with host readback tool. Takes in a message of 80 bytes, that follows this
+ format: encrypted pw (32 bytes), start address (8 bytes), encrypted readback size (8 bytes),
+ and hash of previous contents (32 bytes)
  */
 void readback(void) {
     wdt_enable(WDTO_2S);  // Start the Watchdog Timer
+    uint8_t index = 0; //index for loops
+    uint8_t rcv = 80; //length of message
+    uint16_t hash_message_length = 384; //length of message minus hash in bits, used as param for sha256
+    uint16_t hash_length = 256;
+    uint8_t readback_input_buffer[80] = {0}; //stores incoming message
+    uint8_t hash_results[32] = {0};
 
-    // Read in start address 1 byte at a time (4 bytes total)    
-    uint32_t start_addr = ((uint32_t)UART1_getchar()) << 24;
-    start_addr |= ((uint32_t)UART1_getchar()) << 16;
-    start_addr |= ((uint32_t)UART1_getchar()) << 8;
-    start_addr |= ((uint32_t)UART1_getchar());
+    while(!UART1_data_available()) {  // Wait for data
+        __asm__ __volatile__("");
+    }
+
+    index = 0; //reset index
+    // get data in form (hashed password | key)
+    while(index < rcv) {
+       wdt_reset();
+       readback_input_buffer[index] = UART1_getchar();
+       index++;
+    }
+
+    //integrity check 
+    sha256(hash_results, readback_input_buffer, hash_message_length);
+    wdt_reset();
+    if(cmp(hash_results, readback_input_buffer + 48, (int) 32) != 0){
+        UART0_putchar('F');
+         while(1){
+            __asm__ __volatile__("");
+        } 
+    }
+    wdt_reset();
+    // Compiled out at O1
+    if(cmp(hash_results, readback_input_buffer + 48, (int) 32) != 0){
+        UART0_putchar('F');
+        while(1){
+            __asm__ __volatile__("");
+        }
+    }
+
+    uint8_t key[16] = {0};
+    uint8_t round_keys[176] = {0};
+    uint8_t hashed_password[32] = {0};
     wdt_reset();
 
-    // Read in size 1 byte at a time (4 bytes total)
-    uint32_t size = ((uint32_t)UART1_getchar()) << 24;
-    size |= ((uint32_t)UART1_getchar()) << 16;
-    size |= ((uint32_t)UART1_getchar()) << 8;
- 
-    size |= ((uint32_t)UART1_getchar());
+    memcpy_PF(key, 0xEF20, 16); //copy key from memory
     wdt_reset();
+
+    RunEncryptionKeySchedule(key, round_keys); //copy key from memory
+    wdt_reset();
+
+    //Start password check process by decrypting password from buffer, in place
+    for(uint8_t i = 0; i < 4; i++){
+        wdt_reset();
+        Decrypt(readback_input_buffer + i*8, round_keys);
+    }
+
+    wdt_reset();
+
+    memcpy_PF(hashed_password, 0xEF00, 32); //copy key from memory
+    wdt_reset();
+
+
+    sha256(hash_results, readback_input_buffer, hash_length); //Hash plaintext user password
+    wdt_reset();
+
+    //Compare decrypted, hashed user input password with stored hashed password
+    if(cmp(hashed_password, hash_results, (int) 32) != 0){
+        UART0_putchar('F');
+        while(1){
+            __asm__ __volatile__("");
+        }
+    }
+
+    if(cmp(hashed_password, hash_results, (int) 32) != 0){
+        UART0_putchar('F');
+        while(1){
+            __asm__ __volatile__("");
+        }
+    }
+
+    Decrypt(readback_input_buffer + 32, round_keys); //decrypt start address
+    Decrypt(readback_input_buffer + 40, round_keys); //decrypt size
+
+    uint32_t size = 0;
+    uint32_t start_addr = 0;
+
+    for(uint8_t i = 0; i < 8; i++){
+        wdt_reset();
+        size = size + (readback_input_buffer[40 - i] << i*8);
+    }
+
+    for(uint8_t i = 0; i < 8; i++){
+        wdt_reset();
+        start_addr = start_addr + (readback_input_buffer[48 - i] << i*8);
+    }
+
+    if(start_addr > 0xFFFF){
+        UART0_putchar('F');
+         while(1) __asm__ __volatile__("");
+    }
+
+    if(start_addr + size > 0xFFFF){
+        UART0_putchar('F');
+         while(1) __asm__ __volatile__("");
+    }
 
     // Read the memory out to UART1
     for (uint32_t addr = start_addr; addr < start_addr + size; ++addr) {
@@ -124,12 +211,19 @@ void readback(void) {
 }
 
 /* Store hashed password and key in first page of flash */
-int store_password(void)
+
+int __attribute__((optimize("O0"))) store_password(void)
 {
     wdt_enable(WDTO_2S);  // Start the Watchdog Timer
-    if(eeprom_read_byte(&key_stored) != 0){
 
-	while(1) __asm__ __volatile__("");
+    //Double check flag
+    if(eeprom_read_byte(&key_stored) != 0){
+	   while(1) __asm__ __volatile__("");
+    }
+
+    //Triple check flag
+    if(eeprom_read_byte(&key_stored) != 0){
+       while(1) __asm__ __volatile__("");
     }
 
     uint8_t i;
@@ -141,15 +235,16 @@ int store_password(void)
     UART1_putchar('K');
 
     while(!UART1_data_available()) {  // Wait for data
+
         __asm__ __volatile__("");
     }
 
     index = 0;
     // get data in form (hashed password | key)
     while(index < rcv) {
-	wdt_reset();
-	secret_buffer[index] = UART1_getchar();
-	index++;
+	   wdt_reset();
+	   secret_buffer[index] = UART1_getchar();
+	   index++;
     }
  
 
@@ -159,7 +254,7 @@ int store_password(void)
     {
 	wdt_reset();
         sha_buffer[index] = secret_buffer[index];
-	index++;
+	    index++;
     }
 
     // store as (hashed password | key) in page that starts at 0xEF00
@@ -273,7 +368,7 @@ void load_firmware(void) {
     // compare encrypted hash with received
     sha256(page_hash, (uint8_t *) data, (uint32_t) 144);
     if(cmp(page_hash, sig, (int) 32) != 0){
-	UART0_putchar('F');
+	   UART0_putchar('F');
 	while(1){
 	    __asm__ __volatile__("");
 	}
@@ -456,7 +551,6 @@ void load_firmware(void) {
         UART1_putchar(OK);  // Acknowledge the frame
     }
 }
-
 
 
 /*
