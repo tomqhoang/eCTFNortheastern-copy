@@ -49,7 +49,7 @@ class Firmware(object):
             self.version = data['version']
             self.version_hash = data['version_hash']
             self.size = data['firmware_size']
-            self.size = 3600
+            #self.size = 3600
             self.hex_data = StringIO(data['hex_data'])
             self.tags = data['tags']
             import pdb; pdb.set_trace()

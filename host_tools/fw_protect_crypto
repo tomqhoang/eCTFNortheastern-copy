@@ -104,11 +104,15 @@ if __name__ == '__main__':
     hash_input = []
     i = 0
     total_flash_data = ''
+
+    extracted_address = []
+
     first_address = byline_data[0][3:7]
     # for each line with data
     for line in byline_data:
         # read numBytes in line
         numBytes = int(line[1:3], 16)
+	extracted_address.append(line[3:9])
         #print numBytes
         # get data hex values
         data = line[9:9+numBytes*2]
@@ -133,10 +137,12 @@ if __name__ == '__main__':
         swapped1 = swap_order(encrypted1.zfill(16), wsz=16, gsz=2)
         swapped2 = swap_order(encrypted2.zfill(16), wsz=16, gsz=2)
         encryptedData = swapped1 + swapped2
-        current_address = hex(int(first_address, 16) + 16 * j)[2:]
+        #current_address = hex(int(first_address, 16) + 16 * j)[2:]
 
         # create new line with encrypted data, convert to hex string
-        encryptedline = ':10' + current_address + '00' +  encryptedData
+        #encryptedline = ':10' + current_address + '00' +  encryptedData
+	encryptedline = ":10" + extracted_address[j] + encryptedData
+	print encryptedline
         checksum_str = compute_checksum(encryptedline[1:])
         encryptedline = encryptedline + checksum_str
 
