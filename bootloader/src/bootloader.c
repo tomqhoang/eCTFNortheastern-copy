@@ -83,7 +83,7 @@ int main(void) {
     else {
         UART1_putchar('B');
         //test_encryption();
-        //boot_firmware();
+        boot_firmware();
     }
 }
 
@@ -344,7 +344,7 @@ void load_firmware(void) {
     int frame_length = 0;
     unsigned char rcv = 0;
     unsigned char data[SPM_PAGESIZE];  // SPM_PAGESIZE is the size of a page
-    unsigned int data_index = 0;
+    unsigned int volatile data_index = 0;
     unsigned int page = 0;
     uint16_t version = 0;
     uint16_t old_version = 65535; // set to max to ensure accuracy
@@ -357,6 +357,7 @@ void load_firmware(void) {
     uint32_t hash_length = 0;
     uint8_t max_segments = 0;
     uint16_t segment_index = 0;
+    unsigned int volatile leftover_index = 0;
     
     // copy key
     memcpy_PF(key, 0x1DF20, 16);
@@ -513,32 +514,41 @@ void load_firmware(void) {
 
 	        wdt_reset();
 
-	        if (frame_length == 0)
-		       UART1_putchar('D');
-
             UART1_putchar(OK);
+
+	        if (frame_length == 0){
+                leftover_index = data_index;  
+                while(leftover_index < (unsigned int)256) {
+                    wdt_reset();
+                    data[leftover_index] = 0;
+                    leftover_index += 1;
+                }
+                leftover_index = 0;
+            }
+
+            wdt_reset();
 	        sig_index = 0;
 
             //grab signature from UART1
-	        for(int i = 0; i < 32; i++){
-	            wdt_reset();
-		        sig[sig_index] = UART1_getchar();
-		        sig_index++;
-	        }
+            while(sig_index < (uint8_t) 32){
+                wdt_reset();
+                sig[sig_index] = UART1_getchar();
+                sig_index++;
+            }
+            UART1_putchar(OK);
 
-	        // last frame received
-	        if(frame_length == 0){
-		        hash_length = (frame_counter << 4) << 3;
-	        }
-            else {
-		         hash_length = 2048;
-	        }
+
+            hash_length = 2048;
+
+	        if (frame_length == 0){
+                UART1_putchar('D');
+            }
 
             ///Need to compare retreived signature, so we compute the encrypted hash
-	        sha256(page_hash, data, hash_length);    
+            sha256(page_hash, data, hash_length);    
             wdt_reset();
 
-	        Encrypt(page_hash,round_keys);
+            Encrypt(page_hash,round_keys);
             Encrypt(page_hash+8, round_keys);
             Encrypt(page_hash+16, round_keys);
 	        Encrypt(page_hash+24, round_keys);
@@ -590,8 +600,7 @@ void load_firmware(void) {
             UART0_putchar(page);
 #endif
             wdt_reset();
-	    frame_counter = 0;
-
+	       frame_counter = 0;
         }
 
         UART1_putchar(OK);  // Acknowledge the frame

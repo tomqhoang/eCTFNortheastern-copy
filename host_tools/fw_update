@@ -163,6 +163,7 @@ if __name__ == '__main__':
         if frame_number == 15:
             try:
                 stuff = struct.pack('>32s', binascii.unhexlify((firmware.tags[page_num])))
+                print firmware.tags[page_num]
             except:
                 import pdb; pdb.set_trace()
             ser.write(stuff)
@@ -174,14 +175,24 @@ if __name__ == '__main__':
         else:
             frame_number += 1
 
- 
+    if frame_number != 0:
+        #import pdb; pdb.set_trace()
+        ser.write(struct.pack('>H', 0x0000))
+        resp = ser.read()
+        time.sleep(0.1)
+        response(resp)
+        try:
+            stuff = struct.pack('>32s', binascii.unhexlify((firmware.tags[page_num])))
+            print firmware.tags[page_num]
+        except:
+            import pdb; pdb.set_trace()
+        ser.write(stuff)
+
     print("Done writing firmware.")
 
     # Send a zero length payload to tell the bootlader to finish writing
     # its page.
-    ser.write(struct.pack('>H', 0x0000))
     resp = ser.read()
     time.sleep(0.1)
-
     if resp == 'D':
         print 'Received confirmation'

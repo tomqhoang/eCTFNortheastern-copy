@@ -97,7 +97,7 @@ if __name__ == '__main__':
 
     # only use data lines
     byline_data = byline[:-1]
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
 
     # for hash output
     hash_input_temp = ''
@@ -112,51 +112,60 @@ if __name__ == '__main__':
     for line in byline_data:
         # read numBytes in line
         numBytes = int(line[1:3], 16)
-	extracted_address.append(line[3:9])
-        #print numBytes
+
+        #extract addresses
+        extracted_address.append(line[3:9])
+
         # get data hex values
         data = line[9:9+numBytes*2]
         total_flash_data = total_flash_data + data
 
     if len(total_flash_data) % 32 != 0:
         total_flash_data.ljust((len(total_flash_data)/32 * 32) + 32, '0')
-    total_flash_list = [total_flash_data[i:i + 32] for i in range(0, len(total_flash_data), 32)]
-    import pdb; pdb.set_trace()
 
+    total_flash_list = [total_flash_data[i:i + 32] for i in range(0, len(total_flash_data), 32)]
+    #import pdb; pdb.set_trace()
+
+
+    #for all 16-byte entries in the flash list, encrypt and prepare formatting for new intelhex file
     for j, data in enumerate(total_flash_list):
-        if len(data) < 32:
+
+        if len(data) < 32: #if the data is less than 16 bytes, pad for SIMON
             data = data.ljust(32, '0')
-        elif len(data) > 32:
+        elif len(data) > 32: #error check
             print "Not a valid data length"
             sys.exit()
+
         # encrypt the 16B using simon
-        data1 = swap_order(data[0:16], wsz=16, gsz=2)
+        data1 = swap_order(data[0:16], wsz=16, gsz=2) #bytewise swap each 8-byte entry
         data2 = swap_order(data[16:], wsz=16, gsz=2)
-        encrypted1 = hex(my_simon.encrypt(int(data1, 16)))[2:-1]
+
+        encrypted1 = hex(my_simon.encrypt(int(data1, 16)))[2:-1] #encrypt with simon, remove the "0x...L"
         encrypted2 = hex(my_simon.encrypt(int(data2, 16)))[2:-1]
-        swapped1 = swap_order(encrypted1.zfill(16), wsz=16, gsz=2)
+
+        swapped1 = swap_order(encrypted1.zfill(16), wsz=16, gsz=2) #reswap
         swapped2 = swap_order(encrypted2.zfill(16), wsz=16, gsz=2)
         encryptedData = swapped1 + swapped2
         #current_address = hex(int(first_address, 16) + 16 * j)[2:]
 
         # create new line with encrypted data, convert to hex string
         #encryptedline = ':10' + current_address + '00' +  encryptedData
-	encryptedline = ":10" + extracted_address[j] + encryptedData
-	print encryptedline
-        checksum_str = compute_checksum(encryptedline[1:])
-        encryptedline = encryptedline + checksum_str
 
-        hash_input_temp = hash_input_temp + encryptedData
-        if len(hash_input_temp) == 512:
-            hash_input.append(hash_input_temp)
-            hash_input_temp = ''
+        encryptedline = ":10" + extracted_address[j] + encryptedData #formatting for intelhex file
+        checksum_str = compute_checksum(encryptedline[1:]) #recompute checksum for line now that it is encrypted
+        encryptedline = encryptedline + checksum_str #finally produce one line of new intel hex 
 
-        encrypted_byline.append(encryptedline)
+        hash_input_temp = hash_input_temp + encryptedData #add encrypted data for hashing
+        if len(hash_input_temp) == 512: #we hash every 256 bytes as it is the page size(16 frames)
+            hash_input.append(hash_input_temp)#add to list of all hashes of every page size
+            hash_input_temp = '' #empty out the page 
 
-    hash_input.append(hash_input_temp)
+        encrypted_byline.append(encryptedline) #add formatted line
 
-    # add the last line back
-    encrypted_byline.extend(byline[-1:])
+    hash_input.append(hash_input_temp.ljust(512, '0')) #add last page that is not 256 bytes, need to zeropad
+
+    # add the eof back
+    encrypted_byline.extend(byline[-1:]) 
 
     # go back to intel_hex SIO() format for hex_data
     encrypted_hex_data = "\n".join(encrypted_byline)
@@ -165,16 +174,20 @@ if __name__ == '__main__':
     hash_locals = []
 
     for input_data in hash_input:
+
         hash_local = sha256(input_data.decode('hex')).hexdigest().zfill(64)
         hash_locals.append(hash_local)
+
         first_q = swap_order(hash_local[0:16], wsz=16, gsz=2)
         second_q = swap_order(hash_local[16:32], wsz=16, gsz=2)
         third_q = swap_order(hash_local[32:48], wsz=16, gsz=2)
         fourth_q = swap_order(hash_local[48:], wsz=16, gsz=2)
+
         fq = hex(my_simon.encrypt(int(first_q,16)))[2:-1].zfill(16)
         sq = hex(my_simon.encrypt(int(second_q,16)))[2:-1].zfill(16)
         tq = hex(my_simon.encrypt(int(third_q,16)))[2:-1].zfill(16)
         foq = hex(my_simon.encrypt(int(fourth_q,16)))[2:-1].zfill(16)
+
         fs = swap_order(fq, wsz=16, gsz=2)
         ss = swap_order(sq, wsz=16, gsz=2)
         ts = swap_order(tq, wsz=16, gsz=2)
@@ -187,8 +200,10 @@ if __name__ == '__main__':
     version_hash_input = (hex(version)[2:]).zfill(4) + (hex(key)[2:-1]).zfill(32)
     import pdb; pdb.set_trace()
     version_hash = sha256(version_hash_input.decode('hex')).hexdigest().zfill(64)
-    print 'Hash local: ' + hash_locals[0]
-    print 'Tag: '+ tags[0]
+    print 'Hash local: ' + hash_locals[3]
+    print 'Tag: '+ tags[3]
+    print 'Hash input: '+ hash_input[3]
+
 
     # Encode the data as json and write to outfile.
     data = {
