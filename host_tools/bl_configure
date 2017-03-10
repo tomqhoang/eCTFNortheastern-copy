@@ -50,17 +50,16 @@ def configure_bootloader(UART1):
     password = generate_secret_file(confKey).zfill(64) 
     hash_data = sha256(password.decode('hex')).hexdigest().zfill(64)
 
-
-    # TODO: change this to print out to DEBUG
+    # The ATMega will send a K when it is ready to receive the key 
     print 'Waiting for bootloader availability to receive key...'
 
     while UART1.read(1) != 'K':
         pass
 
-    # TODO: Change this to print out to DEBUG
     print 'Sending key to bootloader'
 
     # Store the parameters in the proper format before sending
+    # TODO: remove the line below if no longer needed (and the one that would send this struct)
     #password_struct = struct.pack('>32s', binascii.unhexlify(password))
     conf_struct = struct.pack('>16s', binascii.unhexlify(confKey))
     hash_struct = struct.pack('>32s', binascii.unhexlify(hash_data))
