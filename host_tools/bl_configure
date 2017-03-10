@@ -74,7 +74,7 @@ def configure_bootloader(UART1):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Bootloader Config Tool')
-    parser.add_argument('--UART1', help='Serial port for sending data.',
+    parser.add_argument('--port', help='Serial port for sending data.',
                          required=True)
     args = parser.parse_args()
 
