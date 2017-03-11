@@ -56,16 +56,18 @@ def swap_and_simon(value, simon, function):
     if len(value) > 16 and len(value) < 0:
         print "Not a valid length for encryption/decryption"
         sys.exit(1)
-    #print("original val: "+ value.zfill(16))
+	
     valueSwapped = swap_order(value.zfill(16),wsz=16,gsz=2)
-    #print("swapped val: "+ valueSwapped)
+
     if function == 'encrypt':
-    	valueEncrypted = hex(simon.encrypt(int(valueSwapped,16)))[2:-1]  # Encrypt the start address
+	# Encrypt the start address
+    	valueEncrypted = hex(simon.encrypt(int(valueSwapped,16)))[2:-1]  
     	valueFinal = swap_order(valueEncrypted.zfill(16),wsz=16,gsz=2)
-    	#print("valueFinal : "+ valueFinal)
+	
     elif function == 'decrypt':
 	valueDecrypted = hex(simon.decrypt(int(valueSwapped, 16)))[2:-1] 
 	valueFinal = swap_order(valueDecrypted.zfill(16), wsz=16, gsz=2)
+
     else:
 	print("Error: specify encryption or decryption")
 	sys.exit()
@@ -117,8 +119,6 @@ def construct_request(start_address, num_bytes):
     start_address = hex(start_address)[2:]    
     num_bytes = hex(num_bytes)[2:]
 
-    print("Num_bytes after casting magic: " + num_bytes)
-
     simon = create_simon()
     
     # Read in secret password from file
@@ -142,26 +142,17 @@ def construct_request(start_address, num_bytes):
     memory_location = swap_and_simon(start_address, simon, 'encrypt')
     # Encrypt the number of bytes that we want to read
     length_data = swap_and_simon(num_bytes, simon, 'encrypt')
-    print("Num_bytes " + str(num_bytes))
-    print("Encrypted num bytes " + str(length_data))
+
     # Combine the 4 sections, start address, and number of bytes into one package
     complete_package = block1 + block2 + block3 + block4 + memory_location + length_data
-    print("FINAL FRAME : " + complete_package)
-    print("Final frame length: " + str(len(complete_package)))
-    print("Frame type: " + str(type(complete_package)))
 
     # Generate hash of final packaged data
     final_package_hash = sha256(complete_package.decode('hex')).hexdigest().zfill(64)
 
-    print("HASH : " + final_package_hash)
-    print("Hash type: " + str(type(final_package_hash)))
     package_hash = final_package_hash
     #Big Endian 48byte for final frame and 32byte for hash
     package = struct.pack('>48s32s',  binascii.unhexlify(complete_package), binascii.unhexlify(package_hash))
-    print("Package Hash: " + package_hash)
-    a, b = struct.unpack('>48s32s', package)
-    print("password, start address, num_bytes : " + binascii.hexlify(a))
-    print("SHA : " + binascii.hexlify(b))
+    
     return package
 
 if __name__ == '__main__':
@@ -199,9 +190,8 @@ if __name__ == '__main__':
 
     # round num_bytes up to nearest 8 and read that many
     rounded_num_bytes = int(8*math.ceil(float(int(args.num_bytes, 16))/8))
-    print(str(rounded_num_bytes))
+
     data = ser.read(rounded_num_bytes).encode('hex')
-    print(data)
 
     # create a simon object for use with the decryption function
     simon = create_simon()   
@@ -215,22 +205,19 @@ if __name__ == '__main__':
 	segmented_data = [data[i:i+chunk_size] for i in range(0, len(data), chunk_size)]
         # write the start address (increment by 0x10 each time) as a 5-char hex string
 	for i in range(num_chunks-1):
-	    print("Original data: " + str(segmented_data[i]))
 	    # decrypt the chunk
 	    decrypted_chunk = swap_and_simon(segmented_data[i], simon, 'decrypt')
-	    print("Decrypted data: " + str(decrypted_chunk))
 	    # update the start address
 	    updated_addr = hex(int(start_addr, 16) + 8*i)[2:]
 	    # write the start address and chunk to the file
 	    datafile.write(str(updated_addr) + str(decrypted_chunk) + str('\n'))
 	    
         # for the last one, decrypt and remove the zero-padding
-	print("Original data: " + str(segmented_data[num_chunks-1]))
 	decrypted_chunk = swap_and_simon(segmented_data[num_chunks-1], simon, 'decrypt')
-	print("Decrypted data: " + str(decrypted_chunk))
 	num_zero_bytes = rounded_num_bytes - int(args.num_bytes, 16)
 	new_length = 16 - 2*num_zero_bytes
+	
         decrypted_chunk = decrypted_chunk[0:new_length]
-	print("Removed the zeros: " + str(decrypted_chunk))
+	
 	updated_addr = hex(int(start_addr, 16) + 8*(num_chunks-1))[2:]
 	datafile.write(str(updated_addr) + str(decrypted_chunk))
