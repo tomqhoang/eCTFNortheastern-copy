@@ -71,5 +71,6 @@ if __name__ == '__main__':
             print "ERROR: Failed to compile bootloader."
             sys.exit(1)
         write_fuse_file('lfuse', 0xff)
-        write_fuse_file('hfuse', 0x18)
+        write_fuse_file('hfuse', 0xf8)
         write_fuse_file('efuse', 0xfc)
+        write_fuse_file('lock', 0xfc)

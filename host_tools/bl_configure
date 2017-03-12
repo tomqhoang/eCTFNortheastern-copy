@@ -79,7 +79,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Create serial connection using specified ports
-    UART1 = serial.Serial(args.UART1, baudrate=115200, timeout=2)
+    UART1 = serial.Serial(args.port, baudrate=115200, timeout=2)
 
     # Do configuration and then close port.
     try:
