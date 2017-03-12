@@ -305,36 +305,7 @@ int __attribute__((optimize("O0"))) store_password(void)
 
     return 1;
 }
-/*
-//used this to test signature and version hash were working properly
-void test_encryption(void){
-    uint8_t key[16] = {0};
-    memcpy_PF(key, 0x1F20, 16);
 
-    uint8_t round_keys[176] = {0};
-
-    uint8_t data[8] = {0};
-    uint8_t data1[8] = {0};
-    uint8_t data2[8] = {0};
-    data1[7] = 0xFF;
-    data2[0] = 0xFF;
-
-    uint8_t hash0[8] = {0};
-    hash0[0] = 0xd9;
-    hash0[1] = 0x57;
-    hash0[2] = 0x5d;
-    hash0[3] = 0xf0;
-    hash0[4] = 0x0f;
-    hash0[5] = 0xe9;
-    hash0[6] = 0x56;
-    hash0[7] = 0x27;
-   
-    RunEncryptionKeySchedule(key, round_keys);
-    Encrypt(hash0, round_keys);
-    Encrypt(data1, round_keys);
-    Encrypt(data2, round_keys);
-}
-*/
 
 /*
  * Load the firmware into flash. Uses SIMON for encryption/decryption, SHA256 for hashing
@@ -455,29 +426,6 @@ void load_firmware(void) {
 	    __asm__ __volatile__("");
 	   }
     }
-
-    if (version != 0 && version < eeprom_read_word(&fw_version)) {
-        UART1_putchar(ERROR);  // Reject the metadata
-
-        while(1) {  // Wait for watchdog timer to reset
-            __asm__ __volatile__("");
-        }
-    }
-
-    else if (version != 0) {  // Update version number in EEPROM
-        wdt_reset();
-        eeprom_update_word(&fw_version, version);
-    }
-
-    // If the new version number is less than the old version number, something is wrong.
-    if(old_version > version){
-        UART1_putchar(ERROR);
-
-        while(1){
-            __asm__ __volatile__("");
-        }
-    }
-
 
     // Write new firmware size to EEPROM
     wdt_reset();
