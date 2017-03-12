@@ -1,13 +1,3 @@
-# NOT COMPLETE
-
-# NOT COMPLETE
-
-HELLO IT IS NOT COMPLETE
-
-
-
-
-
 # Welcome to the host tools!
 Here are the host tools that are needed to meet the functional requirements 
 specified in the rules. We decided to follow the formatting set up in MITRE's
@@ -32,7 +22,9 @@ Required:
 
 ## Bundle and Protect: fw_protect
 This script will encrypt the fimrware that represent the IP being protected. It makes use of the [Simon 
-block cipher, 64-bit block/128-bit word](https://github.com/inmcm/Simon_Speck_Ciphers/tree/master/Python) and [SHA256 hash algorithm](https://docs.python.org/2/library/hashlib.html). Our SIMON cipher requires workarounds to work properly with our microprocessor. There are also significant manual handling of firmware frame creation. Please see the code for detailed analysis of these procedures.
+block cipher, 64-bit block/128-bit word](https://github.com/inmcm/Simon_Speck_Ciphers/tree/master/Python) and [SHA256 hash algorithm](https://docs.python.org/2/library/hashlib.html). Our SIMON cipher requires workarounds to work properly with our microprocessor. There are also significant changes regarding the manual handling of firmware frame creation. Please see the code for detailed analysis of these procedures.
+
+The input IntelHex file is parsed in this tool and then converted to an encrypted version which remains in the IntelHex format. This was done deliberately to reduce the changes required in the fw_update tool.
 
 This function is the most changed from the MITRE code, mainly because the collaboration of the SIMON python and C libraries require significant porting in both the host tool and in the bootloader function. To be specific, this is mainly due to the unusual nature of how the python SIMON library handles data representation conversion between both its encrypt/decrypt function. Of course, encrypt/decrypt is consistent with the usage of the python library alone. However, when encryption and decryption are performed on different platforms, this internal consistency of python Simon data representations begins to break down and now requires a step-by-step consideration of how data types are manipulated. 
 
@@ -48,7 +40,7 @@ Required:
 * --message (Release message)
 
 ## Update Tool: fw_update
-This publicly available tool has no security measures - everything related to cryptographic measures is handled in host tools executed before this tool and in the bootloader itself. This host tool essentially has no changes from the original MITRE code.
+This publicly available tool has no security measures - everything related to cryptographic measures is handled in host tools executed before this tool and in the bootloader itself. This host tool deals with page and frame edge cases, and sends digital signatures at appropriate times.
 Required:
 * --port (UART1, sends/receives data over)
 * --firmware (secured firmware .hex file)
