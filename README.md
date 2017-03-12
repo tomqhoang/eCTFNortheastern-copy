@@ -202,8 +202,6 @@ avrdude: Version 6.0.1, compiled on Dec 16 2013 at 17:26:24
    Device ID:                       AVRDRAGON
 ```
 
-Once you run `make debug` you should get a window that looks like this:
-![alt text](gdb_example.png)
 
 
 ## Disclaimer
