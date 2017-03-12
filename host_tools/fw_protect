@@ -1,18 +1,53 @@
 #!/usr/bin/env python
+import binascii
 """
 Firmware Bundle-and-Protect Tool
 """
 import argparse
-import shutil
-import struct
 import json
+import sys
 import zlib
 
-from hashlib import sha256
 from cStringIO import StringIO
+from hashlib import sha256
 from intelhex import IntelHex
-import random, os, struct
 from simon import SimonCipher
+
+
+def swap_order(d, wsz=4, gsz=2):
+    """
+    Swaps gsz number of characters in wsz groups of string d
+    """
+    return "".join(["".join([m[i:i+gsz] for i in range(wsz-gsz, -gsz, -gsz)]) for m in [d[i:i+wsz] for i in range(0, len(d), wsz)]])
+
+def complement(input_int):
+    """
+    This function returns the 2's complement of an integer. It is used to 
+    compute checksums for IntelHex files.
+    """
+    input_str = (bin(input_int)[2:]).zfill(8)
+    result = ''
+    for i in input_str:
+        if i == '1':
+            result = result + '0'
+        else:
+            result = result + '1'
+    return int(result, 2) + 1
+
+def compute_checksum(intelhex_str):
+    """
+    This function takes in an IntelHex string and computes the checksum for 
+    that line in the file. The checksum is then returned as a string.
+    """
+    try:
+        checksum_hex = bytearray(intelhex_str.decode('hex'))
+    except:
+        print('ERROR CHECKSUM')
+    checksum_val = sum(checksum_hex) & 0xFF
+    twos_complement = complement(checksum_val)
+    checksum_bytes = hex(twos_complement)
+    checksum_str = checksum_bytes[2:].zfill(2)[-2:]
+    return checksum_str
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Firmware Update Tool')
@@ -31,7 +66,6 @@ if __name__ == '__main__':
     # Parse Intel hex file.
     firmware = IntelHex(args.infile)
 
-
     # Get version and size.
     firmware_size = firmware.maxaddr() + 1
     version = int(args.version)
@@ -42,60 +76,162 @@ if __name__ == '__main__':
     firmware.write_hex_file(sio)
     hex_data = sio.getvalue()
 
-    stripnewline = hex_data.replace('\n','');
-    rawdata = hex_data.replace(':','')
+    # Hex data is in IntelHex format, see wikipedia article on formatting
 
-    bindata = firmware.tobinstr()
+    # Parse the key from secret_configure_output.txt
+    f = open('secret_configure_output.txt', 'r')
+    secret_config_file_txt = f.read()
+    secret_config_json = json.loads(secret_config_file_txt)
+    key_string = secret_config_json['SIMONKEY']
 
+    #Need to swap key byte-wise (in 4-byte chunks), then reverse order of chunks
+    first_keyq = swap_order(key_string[0:8], wsz=8, gsz=2)
+    second_keyq = swap_order(key_string[8:16], wsz=8, gsz=2)
+    third_keyq = swap_order(key_string[16:24], wsz=8, gsz=2)
+    fourth_keyq = swap_order(key_string[24:32], wsz=8, gsz=2)
+    swap_key = fourth_keyq + third_keyq + second_keyq + first_keyq
 
-    #######################################
-    # Encryption of entire file using AES #
-    #######################################
-    chunksize = 16; #AES256 default
-
-    # This will be provided by D-H in Bootloader Configure Tool
-    password = 'secret-key-asymmetric'
-    key = sha256(password).digest()
-
-
-    # IV needs to be sent over with firmware unencrypted for ATMEGA
-    iv = ''.join(chr(random.randint(0, 0xFF)) for i in range(16))
-
-    encryptObj = AES.new(key,AES.MODE_CBC, iv)
-
-    file_size = len(bindata)
-
-    if(len(bindata) % 16 != 0):
-        bindata = bindata + ''.join(['\x95' for i in range(16 - (len(bindata) % 16))])
+    #print "swap_key" + swap_key
     
-    #import pdb; pdb.set_trace()
-    encryptedFirmware = encryptObj.encrypt(bindata)
+    key = int(key_string, 16)
 
+    #create simon cipher, key goes in here in 0xhex, or int('hex-string-here',16)
+    my_simon = SimonCipher(int(swap_key,16), key_size=128, block_size=64)
 
+    # split each line
+    byline = hex_data.splitlines()
+
+    # remove first two lines from encryption because there is no data there
+    encrypted_byline = []
+
+    # only use data lines
+    byline_data = byline[:-1]
+
+    # for hash output
+    hash_input_temp = ''
+    hash_input = []
+    i = 0
+    total_flash_data = ''
+
+    extracted_address = []
+
+    first_address = byline_data[0][3:7]
+    # for each line with data
+    for line in byline_data:
+        # read numBytes in line
+        numBytes = int(line[1:3], 16)
+
+        #extract addresses
+        extracted_address.append(line[3:9])
+
+        # get data hex values
+        data = line[9:9+numBytes*2]
+        total_flash_data = total_flash_data + data
+	
+    # If the length of this list is not divisible by 32, then round up to the 
+    # nearest multiple of 32 and fill with zeros up to that length
+    if len(total_flash_data) % 32 != 0:
+        total_flash_data.ljust((len(total_flash_data)/32 * 32) + 32, '0')
+
+    total_flash_list = [total_flash_data[i:i + 32] for i in range(0, len(total_flash_data), 32)]
+
+    #for all 16-byte entries in the flash list, encrypt and prepare formatting for new intelhex file
+    for j, data in enumerate(total_flash_list):
+	#if the data is less than 16 bytes, pad for SIMON
+        if len(data) < 32: 
+            data = data.ljust(32, '0')
+	#error check
+        elif len(data) > 32: 
+            print "Not a valid data length"
+            sys.exit()
+
+        # encrypt the 16B using simon
+	#bytewise swap each 8-byte entry
+        data1 = swap_order(data[0:16], wsz=16, gsz=2) 
+        data2 = swap_order(data[16:], wsz=16, gsz=2)
+	
+	#encrypt with simon, remove the "0x...L"
+        encrypted1 = hex(my_simon.encrypt(int(data1, 16)))[2:-1] 
+        encrypted2 = hex(my_simon.encrypt(int(data2, 16)))[2:-1]
+	
+	#reswap
+        swapped1 = swap_order(encrypted1.zfill(16), wsz=16, gsz=2) 
+        swapped2 = swap_order(encrypted2.zfill(16), wsz=16, gsz=2)
+        encryptedData = swapped1 + swapped2
+	
+        # create new line with encrypted data, convert to hex string
+	#formatting for intelhex file
+        encryptedline = ":10" + extracted_address[j] + encryptedData 
+	#recompute checksum for line now that it is encrypted
+        checksum_str = compute_checksum(encryptedline[1:]) 
+	#finally produce one line of new intel hex
+        encryptedline = encryptedline + checksum_str 
+	
+	#add encrypted data for hashing
+        hash_input_temp = hash_input_temp + encryptedData 
+	#we hash every 256 bytes as it is the page size(16 frames)
+        if len(hash_input_temp) == 512: 
+	    #add to list of all hashes of every page size
+            hash_input.append(hash_input_temp)
+	    #empty out the page 
+            hash_input_temp = ''
+		
+	#add formatted line
+        encrypted_byline.append(encryptedline) 
+	
+    #add last page that is not 256 bytes, need to zeropad
+    hash_input.append(hash_input_temp.ljust(512, '0'))
+
+    # add the eof back
+    encrypted_byline.extend(byline[-1:]) 
+
+    # go back to intel_hex SIO() format for hex_data
+    encrypted_hex_data = "\n".join(encrypted_byline)
+    # #HASH for pages
+    tags = []
+    hash_locals = []
+
+    for input_data in hash_input:
+	#hash of one page
+        hash_local = sha256(input_data.decode('hex')).hexdigest().zfill(64)
+        hash_locals.append(hash_local)
+
+	#swap operation, see encryption swap for more information
+        first_q = swap_order(hash_local[0:16], wsz=16, gsz=2)
+        second_q = swap_order(hash_local[16:32], wsz=16, gsz=2)
+        third_q = swap_order(hash_local[32:48], wsz=16, gsz=2)
+        fourth_q = swap_order(hash_local[48:], wsz=16, gsz=2)
+	
+	#encrypted swapped hash
+        fq = hex(my_simon.encrypt(int(first_q,16)))[2:-1].zfill(16)
+        sq = hex(my_simon.encrypt(int(second_q,16)))[2:-1].zfill(16)
+        tq = hex(my_simon.encrypt(int(third_q,16)))[2:-1].zfill(16)
+        foq = hex(my_simon.encrypt(int(fourth_q,16)))[2:-1].zfill(16)
+
+	#unswap encrypted hash
+        fs = swap_order(fq, wsz=16, gsz=2)
+        ss = swap_order(sq, wsz=16, gsz=2)
+        ts = swap_order(tq, wsz=16, gsz=2)
+        fos = swap_order(foq, wsz=16, gsz=2)
+	
+	#combined unswapped encrypted hash
+        tags.append(fs + ss + ts + fos)
 
     # Sign Result
     # Save as Version-Bytes
-    ints = []
-	version_hex = struct.pack('<H', version)
-	version_hex = version_hex + ''.join(['\x00' for i in range(30)])
-    version_hash = sha256(str(version_hex)).hexdigest()
-    file = open('version_hash.txt','wb')
-    for i in xrange(0,63,2):
-        file.write(str(int(version_hash[i:i+2],16)) + " ")
-    #import pdb; pdb.set_trace()
+    version_hash_input = (hex(version)[2:]).zfill(4) + (hex(key)[2:-1]).zfill(32)
+    version_hash = sha256(version_hash_input.decode('hex')).hexdigest().zfill(64)
 
-    # Encrypt message
-    file.close()
-
-    os.system("./sign")
-
-    
     # Encode the data as json and write to outfile.
     data = {
         'firmware_size' : firmware_size,
-        'file_size' : file_size,
-        'version' : version_bytes,
-        'bin_data' : encryptedFirmware
+        'version_hash' : version_hash,
+	'version' : version,
+        'hex_data' : encrypted_hex_data,
+        'tags' : tags
     }
-
-    with open(args
+    #save json object
+    with open(args.outfile, 'wb+') as outfile:
+        data = json.dumps(data)
+        data = zlib.compress(data)
+        outfile.write(data)
