@@ -79,10 +79,21 @@ EOT
 $install_pip_packages = <<EOT
 echo "Installing required pip packages."
 
-yes | pip install #{$team_pip_packages} #{$local_pip_packages}
+yes | pip install #{$team_pip_packages} #{$local_pip_packages} 
 EOT
 
 
+$install_pip_easy_install_packages= <<EOT
+
+echo "Installing required easy_install packages."
+
+yes | easy_install #{$team_easy_install_packages}
+
+if [-f /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so]; then
+    sudo rm /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so
+fi
+
+EOT
 
 ################################################################################
 # VM Configuration
@@ -188,6 +199,7 @@ Vagrant.configure(2) do |config|
   # Install dependencies.
   config.vm.provision "shell", inline: $install_apt_packages
   config.vm.provision "shell", inline: $install_pip_packages
+  config.vm.provision "shell", inline: $install_pip_easy_install_packages
 
   # Configure installed tools.
   config.vm.provision "shell", inline: $configure_team_tools

@@ -18,8 +18,12 @@ end
 # Custom Ubuntu packages installed with apt-get.
 $team_apt_packages = "gcc-avr avr-libc make avrdude avarice gdb-avr"
 
-# Custom Python packages installed iwth pip.
-$team_pip_packages = "pyserial pycrypto intelhex hashlib"
+# Custom Python packages installed with pip.
+$team_pip_packages = "pyserial pycrypto intelhex"
+
+# Custom Python packages installed with pip easy_install.
+$team_easy_install_packages = "hashlib"
+
 
 ################################################################################
 # Teeam Provisioning Scripts
