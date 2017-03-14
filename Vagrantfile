@@ -59,6 +59,10 @@ EOT
 $install_apt_packages = <<EOT
 echo "Installing required apt packages."
 
+if [ -a /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so ]; then
+    sudo rm /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so
+fi
+
 apt-get update
 apt-get install -y git gcc g++ gdb pkg-config python-pip python-dev \
                    linux-image-extra-virtual \
@@ -79,7 +83,12 @@ EOT
 $install_pip_packages = <<EOT
 echo "Installing required pip packages."
 
+if [ -a /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so ]; then
+    sudo rm /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so
+fi
+
 yes | pip install #{$team_pip_packages} #{$local_pip_packages} 
+
 EOT
 
 
@@ -87,11 +96,11 @@ $install_pip_easy_install_packages= <<EOT
 
 echo "Installing required easy_install packages."
 
-yes | easy_install #{$team_easy_install_packages}
-
-if [-f /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so]; then
+if [ -a /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so ]; then
     sudo rm /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so
 fi
+
+yes | easy_install #{$team_easy_install_packages}
 
 EOT
 
