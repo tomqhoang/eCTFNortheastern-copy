@@ -59,10 +59,6 @@ EOT
 $install_apt_packages = <<EOT
 echo "Installing required apt packages."
 
-if [ -a /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so ]; then
-    sudo rm /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so
-fi
-
 apt-get update
 apt-get install -y git gcc g++ gdb pkg-config python-pip python-dev \
                    linux-image-extra-virtual \
@@ -83,13 +79,9 @@ EOT
 $install_pip_packages = <<EOT
 echo "Installing required pip packages."
 
-if [ -a /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so ]; then
-    sudo rm /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so
-fi
-
-yes | pip install #{$team_pip_packages} #{$local_pip_packages} 
-
+yes | pip install #{$team_pip_packages} #{$local_pip_packages}
 EOT
+
 
 
 ################################################################################
@@ -196,7 +188,6 @@ Vagrant.configure(2) do |config|
   # Install dependencies.
   config.vm.provision "shell", inline: $install_apt_packages
   config.vm.provision "shell", inline: $install_pip_packages
-  config.vm.provision "shell", inline: $install_pip_easy_install_packages
 
   # Configure installed tools.
   config.vm.provision "shell", inline: $configure_team_tools
