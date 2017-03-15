@@ -419,7 +419,7 @@ void load_firmware(void) {
     }
 
     // If the new version number is less than the old version number, something is wrong.
-    if(old_version > version){
+    if(version != 0 && old_version > version){
         UART1_putchar(ERROR);
 
 	while(1){
