@@ -53,7 +53,7 @@ need to install it again.
 Once you have downloaded the build environment, change into its direcotry in 
 your shell and follow these steps to start up your VM:
 
-1. Copy `Vagrantfile.team` to `Vagrantfile.local`.
+1. Copy `Vagrantfile.local.example` to `Vagrantfile.local`.
 2. Open `Vagrantfile.local` and ensure that the configurations make sense for
    your system configuration.
 3. Run `vagrant up` in the shell/command line of your choice to download the VM
