@@ -91,16 +91,6 @@ yes | pip install #{$team_pip_packages} #{$local_pip_packages}
 
 EOT
 
-
-$install_pip_easy_install_packages= <<EOT
-
-echo "Installing required easy_install packages."
-
-yes | easy_install #{$team_easy_install_packages}
-
-if [ -a /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so ]; then
-    sudo rm /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so
-fi
 EOT
 
 ################################################################################
