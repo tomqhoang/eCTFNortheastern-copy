@@ -210,7 +210,7 @@ if __name__ == '__main__':
 	    # update the start address
 	    updated_addr = hex(int(start_addr, 16) + 8*i)[2:]
 	    # write the start address and chunk to the file
-        print(str(decrypted_chunk) + str('\n'))
+            print(str(decrypted_chunk) + str('\n'))
 	    datafile.write(str(updated_addr) + str(decrypted_chunk) + str('\n'))
 	    
         # for the last one, decrypt and remove the zero-padding
@@ -218,9 +218,9 @@ if __name__ == '__main__':
 	num_zero_bytes = rounded_num_bytes - int(args.num_bytes, 16)
 	new_length = 16 - 2*num_zero_bytes
 	
-    decrypted_chunk = decrypted_chunk[0:new_length]
+        decrypted_chunk = decrypted_chunk[0:new_length]
 	
 	updated_addr = hex(int(start_addr, 16) + 8*(num_chunks-1))[2:]
 
-    print(str(decrypted_chunk))
-    datafile.write(str(updated_addr) + str(decrypted_chunk))
+        print(str(decrypted_chunk))
+        datafile.write(str(updated_addr) + str(decrypted_chunk))
