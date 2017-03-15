@@ -45,7 +45,6 @@ if [ -a /usr/lib/python2.7/lib-dynload/_hashlib.x86_64-linux-gnu.so ]; then
 fi
 
 EOT
-EOT
 
 # Configure the machine and installed tools:
 #   git: Configure the system-wide proxy settings and set the user name/email to
