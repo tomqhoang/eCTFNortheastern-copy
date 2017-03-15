@@ -17,7 +17,7 @@ from Crypto import Random
 from intelhex import IntelHex
 
 # Define the directory where the bootloader lives.
-BOOTLOADER_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'bootloader'))
+BOOTLOADER_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 
 def generate_readback_password():
     """
