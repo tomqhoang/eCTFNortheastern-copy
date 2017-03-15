@@ -1,23 +1,20 @@
 #!/usr/bin/env python
-
 """
 Bootloader Build Tool
-
-This tool is responsible for building the bootloader from source and
-copying the build outputs into the host tools directory for programming.
+This tool is responsible for building the bootloader from source and copying
+the build outputs into the host tools directory for programming.
 """
-
-import argparse
-import json
 import os
+import random
+import shutil
 import subprocess
 import sys
-
+import json
 from Crypto import Random
+
 from intelhex import IntelHex
 
-# Define the directory where the bootloader lives.
-BOOTLOADER_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+FILE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 def generate_readback_password():
     """
@@ -32,45 +29,54 @@ def generate_readback_password():
         secret_build_output.write(data)
     return random_password
 
-def make(password=None):
+def make_bootloader(password=None):
     """
     Build the bootloader from source.
+    Return:
+        True if successful, False otherwise.
     """
+    # Change into directory containing bootloader.
+    os.chdir('../bootloader')
+
+    subprocess.call('make clean', shell=True)
+    # Call make in subprocess to build bootloader.
     if password is not None:
-        status = subprocess.call('make PASSWORD="%s"' % password, cwd=BOOTLOADER_DIR, shell=True)
+        status = subprocess.call('make PASSWORD="%s"' % password, shell=True)
     else:
         status = subprocess.call('make')
-    # return True if build was successful
-    return status == 0
 
-def clean():
-    subprocess.call('make clean', cwd=BOOTLOADER_DIR, shell=True)
-    # Remove 'secret_build_output.txt' if it exists
-    [os.remove(f) if os.path.exists(f) else None for f in ['secret_build_output.txt']]
+    # Return True if make returned 0, otherwise return False.
+    return (status == 0)
+
+def copy_artifacts():
+    """
+    Copy bootloader build artifacts into the host tools directory.
+    """
+    # Get directory containing this file (host_tools).
+    dst_dir = FILE_DIR
+
+    # Get directory containing bootloader output (bootloader).
+    src_dir = os.path.join(os.path.dirname(dst_dir), 'bootloader')
+
+    # Copy build artifacts from bootloader directory.
+    shutil.copy(os.path.join(src_dir, 'flash.hex'), dst_dir)
+    shutil.copy(os.path.join(src_dir, 'eeprom.hex'), dst_dir)
 
 def write_fuse_file(fuse_name, fuse_value):
-    """
-    Write fuses to the proper file and format as IntelHex.
-    """
     hex_file = IntelHex()
     hex_file[0] = fuse_value
 
-    with open(os.path.join(BOOTLOADER_DIR, fuse_name + '.hex'), 'wb+') as outfile:
+    with open(os.path.join(FILE_DIR, fuse_name + '.hex'), 'wb+') as outfile:
         hex_file.tofile(outfile, format='hex')
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Bootloader Build Tool')
-    parser.add_argument('clean', help='Clean output files', nargs='?', type=bool, default=False)
-    args = parser.parse_args()
+    password = generate_readback_password()
+    if not make_bootloader(password=password):
+        print "ERROR: Failed to compile bootloader."
+        sys.exit(1)
+    copy_artifacts()
+    write_fuse_file('lfuse', 0xFF)
+    write_fuse_file('hfuse', 0xf8)
+    write_fuse_file('efuse', 0xFC)
+    write_fuse_file('lock', 0xfc)
 
-    if args.clean == True:
-        clean()
-    else:
-        random_password = generate_readback_password()
-        if not make(password=random_password):
-            print "ERROR: Failed to compile bootloader."
-            sys.exit(1)
-        write_fuse_file('lfuse', 0xff)
-        write_fuse_file('hfuse', 0xf8)
-        write_fuse_file('efuse', 0xfc)
-        write_fuse_file('lock', 0xfc)
