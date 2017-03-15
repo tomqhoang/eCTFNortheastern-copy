@@ -91,7 +91,6 @@ yes | pip install #{$team_pip_packages} #{$local_pip_packages}
 
 EOT
 
-EOT
 
 ################################################################################
 # VM Configuration
